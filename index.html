@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>강의 플랫폼</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;min-height:100vh}
+.screen{display:none;flex-direction:column;min-height:100vh}
+.screen.active{display:flex}
+
+/* ── 공통 컴포넌트 ── */
+.inp{width:100%;border:1px solid rgba(0,0,0,0.15);border-radius:10px;padding:12px 14px;font-size:16px;color:#1a1a1a;background:#fff;outline:none;-webkit-appearance:none;transition:border-color .15s}
+.inp:focus{border-color:#3b82f6}
+.btn-blue{width:100%;background:#3b82f6;color:#fff;border:none;padding:14px;border-radius:10px;font-size:16px;font-weight:500;cursor:pointer;-webkit-appearance:none}
+.btn-blue:active{background:#2563eb}
+.btn-purple{width:100%;background:#7c3aed;color:#fff;border:none;padding:14px;border-radius:10px;font-size:16px;font-weight:500;cursor:pointer;-webkit-appearance:none}
+.btn-purple:active{background:#6d28d9}
+.btn-outline{background:transparent;border:1px solid rgba(0,0,0,0.15);color:#666;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;-webkit-appearance:none}
+.btn-outline:active{background:#f0f0ee}
+
+/* ── 헤더 ── */
+.hdr{background:#fff;border-bottom:0.5px solid rgba(0,0,0,0.1);padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:100}
+.hdr-title{font-size:16px;font-weight:500;color:#1a1a1a}
+
+/* ── 랜딩 ── */
+#s-landing{align-items:center;justify-content:center;padding:32px 24px;gap:36px}
+.landing-logo{text-align:center}
+.landing-title{font-size:28px;font-weight:500;color:#1a1a1a}
+.landing-sub{font-size:15px;color:#888;margin-top:8px}
+.role-cards{width:100%;max-width:360px;display:flex;flex-direction:column;gap:12px}
+.role-card{background:#fff;border:1px solid rgba(0,0,0,0.1);border-radius:14px;padding:20px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:border-color .15s}
+.role-card:active{background:#f9f9f8}
+.role-icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.role-card-title{font-size:15px;font-weight:500;color:#1a1a1a}
+.role-card-sub{font-size:13px;color:#888;margin-top:2px}
+.role-arrow{margin-left:auto;color:#ccc;font-size:18px}
+
+/* ── 로그인 ── */
+#s-login-student,#s-login-admin{justify-content:center;padding:24px}
+.login-box{width:100%;max-width:400px;margin:0 auto;background:#fff;border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;gap:18px;border:1px solid rgba(0,0,0,0.08)}
+.login-title{font-size:20px;font-weight:500;color:#1a1a1a}
+.login-sub{font-size:13px;color:#888;margin-top:3px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:500;color:#555}
+.back-link{text-align:center;font-size:13px;color:#aaa;cursor:pointer;padding:4px}
+.back-link:active{color:#666}
+
+/* ── 수강자 대시보드 ── */
+#s-student{background:#f5f5f3}
+.student-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+
+/* 강의 카드 목록 */
+.vcard{background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.08);padding:14px 16px;cursor:pointer;transition:border-color .15s}
+.vcard:active{background:#fafafa}
+.vcard.sel{border-color:#3b82f6;background:#eff6ff}
+.vcard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
+.vcard-title{font-size:14px;font-weight:500;color:#1a1a1a;line-height:1.4}
+.badge-done{font-size:11px;background:#dcfce7;color:#166534;padding:3px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+.badge-quiz{font-size:11px;background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+.prog-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.prog-bar{flex:1;height:4px;background:#f0f0ee;border-radius:999px;overflow:hidden}
+.prog-fill{height:100%;background:#3b82f6;border-radius:999px;transition:width .3s}
+.prog-pct{font-size:11px;color:#aaa;min-width:28px;text-align:right}
+
+/* 플레이어 */
+.player-card{background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.08);overflow:hidden}
+.player-info{padding:14px 16px 12px}
+.player-title{font-size:15px;font-weight:500;color:#1a1a1a;margin-bottom:4px}
+.player-desc{font-size:13px;color:#888}
+.gdrive-notice{margin:0 16px 12px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;font-size:12px;color:#92400e;line-height:1.6}
+.gdrive-box{aspect-ratio:16/9;background:#111;overflow:hidden}
+.gdrive-box iframe{width:100%;height:100%;border:none;display:block}
+.player-footer{padding:12px 16px}
+.complete-btn-wrap{padding:0 16px 14px}
+.done-bar{margin:12px 16px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:8px;font-size:13px;color:#166534}
+
+/* 퀴즈 */
+.quiz-card{background:#fff;border-radius:12px;border:1px solid #bfdbfe;overflow:hidden}
+.quiz-card-hdr{background:#eff6ff;padding:12px 16px;font-size:13px;font-weight:500;color:#1e40af}
+.quiz-card-body{padding:16px;display:flex;flex-direction:column;gap:18px}
+.quiz-q{font-size:14px;font-weight:500;color:#1a1a1a;margin-bottom:8px}
+.quiz-opts{display:flex;flex-direction:column;gap:8px}
+.quiz-opt{padding:12px 14px;border:1px solid rgba(0,0,0,0.12);border-radius:10px;cursor:pointer;font-size:14px;color:#1a1a1a;background:#fff;text-align:left;width:100%;-webkit-appearance:none}
+.quiz-opt:active{background:#f5f5f3}
+.quiz-opt.sel{border-color:#3b82f6;background:#eff6ff;color:#1e40af}
+.quiz-result{text-align:center;padding:20px 16px;background:#f5f5f3;border-radius:8px}
+.quiz-score{font-size:36px;font-weight:500;color:#3b82f6}
+.quiz-msg{font-size:14px;color:#666;margin-top:6px}
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:40px 0}
+
+/* ── 관리자 대시보드 ── */
+#s-admin{background:#f5f5f3}
+.admin-tabs{background:#fff;border-bottom:0.5px solid rgba(0,0,0,0.1);display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0}
+.admin-tabs::-webkit-scrollbar{display:none}
+.atab{padding:13px 18px;font-size:13px;font-weight:500;color:#888;border-bottom:2px solid transparent;white-space:nowrap;cursor:pointer;-webkit-appearance:none;background:transparent;border-top:none;border-left:none;border-right:none}
+.atab.on{color:#7c3aed;border-bottom-color:#7c3aed}
+.admin-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.card{background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.08);padding:16px;display:flex;flex-direction:column;gap:12px}
+.card-title{font-size:14px;font-weight:500;color:#1a1a1a}
+.help-box{background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;font-size:12px;color:#1e3a5f;line-height:1.9}
+.help-box b{font-weight:500}
+.video-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid rgba(0,0,0,0.07)}
+.video-row:last-child{border-bottom:none;padding-bottom:0}
+.video-row:first-child{padding-top:0}
+.video-info{flex:1;min-width:0}
+.video-name{font-size:13px;font-weight:500;color:#1a1a1a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.video-meta{font-size:11px;color:#aaa;margin-top:2px}
+.badge-active{font-size:11px;background:#dcfce7;color:#166534;padding:4px 10px;border-radius:999px;cursor:pointer;border:none;white-space:nowrap;-webkit-appearance:none}
+.badge-inactive{font-size:11px;background:#f0f0ee;color:#888;padding:4px 10px;border-radius:999px;cursor:pointer;border:none;white-space:nowrap;-webkit-appearance:none}
+.btn-del{font-size:12px;padding:5px 12px;border-radius:8px;border:1px solid #fca5a5;color:#dc2626;background:transparent;cursor:pointer;white-space:nowrap;-webkit-appearance:none}
+.btn-del:active{background:#fef2f2}
+.avatar{width:36px;height:36px;border-radius:50%;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;color:#5b21b6;flex-shrink:0}
+.assign-user-hdr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.assign-chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-size:12px;padding:6px 12px;border-radius:999px;border:1px solid rgba(0,0,0,0.12);cursor:pointer;color:#666;background:#fff;-webkit-appearance:none}
+.chip:active{background:#f5f5f3}
+.chip.on{background:#eff6ff;border-color:#3b82f6;color:#1e40af}
+.stat-row{padding:10px 0;border-bottom:0.5px solid rgba(0,0,0,0.07)}
+.stat-row:last-child{border-bottom:none;padding-bottom:0}
+.stat-row:first-child{padding-top:0}
+.stat-name{font-size:13px;font-weight:500;color:#1a1a1a}
+.stat-phone{font-size:11px;color:#888;margin-top:1px}
+.stat-videos{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+.stat-vrow{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#666;gap:8px}
+.stat-vtitle{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888}
+.stat-badges{display:flex;gap:6px;flex-shrink:0}
+.csv-btn{font-size:12px;padding:7px 14px;border:1px solid rgba(0,0,0,0.12);border-radius:8px;color:#666;background:transparent;cursor:pointer;align-self:flex-end;-webkit-appearance:none}
+.csv-btn:active{background:#f0f0ee}
+
+/* ── 반응형 (태블릿 이상) ── */
+@media(min-width:640px){
+  body{display:flex;align-items:center;justify-content:center;padding:20px}
+  .screen{min-height:0;height:auto;border-radius:14px;overflow:hidden;border:1px solid rgba(0,0,0,0.08);box-shadow:0 4px 24px rgba(0,0,0,0.06);max-width:480px;width:100%}
+  .screen.active{min-height:600px}
+  #s-student,#s-admin{max-width:720px}
+}
+</style>
+</head>
+<body>
+
+<!-- 랜딩 -->
+<div id="s-landing" class="screen active">
+  <div class="landing-logo">
+    <div class="landing-title">강의 플랫폼</div>
+    <div class="landing-sub">역할을 선택해 로그인하세요</div>
+  </div>
+  <div class="role-cards">
+    <div class="role-card" onclick="go('s-login-student')">
+      <div class="role-icon" style="background:#eff6ff">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <div>
+        <div class="role-card-title">수강자</div>
+        <div class="role-card-sub">이름 + 전화번호로 입장</div>
+      </div>
+      <div class="role-arrow">›</div>
+    </div>
+    <div class="role-card" onclick="go('s-login-admin')">
+      <div class="role-icon" style="background:#f5f3ff">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <div>
+        <div class="role-card-title">관리자</div>
+        <div class="role-card-sub">아이디 + 비밀번호로 입장</div>
+      </div>
+      <div class="role-arrow">›</div>
+    </div>
+  </div>
+</div>
+
+<!-- 수강자 로그인 -->
+<div id="s-login-student" class="screen">
+  <div class="login-box">
+    <div>
+      <div class="login-title">수강자 로그인</div>
+      <div class="login-sub">처음 방문이면 자동으로 가입됩니다.</div>
+    </div>
+    <div class="field"><label>이름</label><input class="inp" id="st-name" placeholder="홍길동" autocomplete="name"/></div>
+    <div class="field"><label>전화번호</label><input class="inp" id="st-phone" placeholder="01012345678" type="tel" autocomplete="tel"/></div>
+    <button class="btn-blue" onclick="studentLogin()">입장하기</button>
+    <div class="back-link" onclick="go('s-landing')">← 처음으로</div>
+  </div>
+</div>
+
+<!-- 관리자 로그인 -->
+<div id="s-login-admin" class="screen">
+  <div class="login-box">
+    <div>
+      <div class="login-title">관리자 로그인</div>
+      <div class="login-sub">관리자 계정으로 로그인하세요.</div>
+    </div>
+    <div class="field"><label>아이디</label><input class="inp" id="ad-id" placeholder="admin" autocomplete="username"/></div>
+    <div class="field"><label>비밀번호</label><input class="inp" type="password" id="ad-pw" placeholder="••••••••" autocomplete="current-password"/></div>
+    <button class="btn-purple" onclick="adminLogin()">로그인</button>
+    <div class="back-link" onclick="go('s-landing')">← 처음으로</div>
+  </div>
+</div>
+
+<!-- 수강자 대시보드 -->
+<div id="s-student" class="screen">
+  <div class="hdr">
+    <div class="hdr-title" id="st-greeting">내 강의</div>
+    <button class="btn-outline" onclick="go('s-landing')">로그아웃</button>
+  </div>
+  <div class="student-body" id="student-body">
+    <div class="empty-state">
+      <div style="width:52px;height:52px;border-radius:50%;background:#f0f0ee;display:flex;align-items:center;justify-content:center;font-size:22px;color:#ccc">▶</div>
+      <span style="font-size:14px;color:#aaa">강의를 선택하세요</span>
+    </div>
+  </div>
+</div>
+
+<!-- 관리자 대시보드 -->
+<div id="s-admin" class="screen">
+  <div class="hdr">
+    <div class="hdr-title">관리자</div>
+    <button class="btn-outline" onclick="go('s-landing')">로그아웃</button>
+  </div>
+  <div class="admin-tabs">
+    <button class="atab on" id="tab-videos" onclick="adminTab('videos')">영상 관리</button>
+    <button class="atab" id="tab-assign" onclick="adminTab('assign')">강의 할당</button>
+    <button class="atab" id="tab-students" onclick="adminTab('students')">수강자 현황</button>
+  </div>
+  <div class="admin-body" id="admin-body"></div>
+</div>
+
+<script>
+/* ══════════════════════════════
+   ★ 관리자 계정 — 여기서 변경 ★
+   ══════════════════════════════ */
+const ADMIN_ID = 'admin';
+const ADMIN_PW = '1234';
+
+const S = {
+  student: null,
+  selectedVid: null,
+  quizAnswers: {},
+  quizSubmitted: {},
+  adminTab: 'videos',
+  videos: [
+    {id:'v1',title:'1강. JavaScript 기초',desc:'변수, 타입, 함수를 배웁니다.',src:'https://drive.google.com/file/d/1lFnN0DluPaHRGm3GmcCVEBbobAXQOVio/preview',order:1,active:true,date:'2025-03-10'},
+    {id:'v2',title:'2강. React 핵심 개념',desc:'컴포넌트, Props, State를 배웁니다.',src:'https://drive.google.com/file/d/1lFnN0DluPaHRGm3GmcCVEBbobAXQOVio/preview',order:2,active:true,date:'2025-03-12'},
+    {id:'v3',title:'3강. Next.js App Router',desc:'서버 컴포넌트와 라우팅을 배웁니다.',src:'https://drive.google.com/file/d/1lFnN0DluPaHRGm3GmcCVEBbobAXQOVio/preview',order:3,active:true,date:'2025-03-15'},
+  ],
+  students: [
+    {id:'u1',name:'김민준',phone:'01012341234',progress:{v1:{done:true,quiz:4},v2:{done:false,quiz:null},v3:{done:false,quiz:null}},assigned:['v1','v2','v3']},
+    {id:'u2',name:'이서연',phone:'01098765432',progress:{v1:{done:true,quiz:3},v2:{done:true,quiz:5},v3:{done:false,quiz:null}},assigned:['v1','v2','v3']},
+    {id:'u3',name:'박도현',phone:'01055556666',progress:{},assigned:['v1','v2']},
+  ],
+  quizzes: {
+    v1:[
+      {q:'JavaScript에서 변수를 선언하는 키워드가 아닌 것은?',opts:['var','let','const','def'],ans:3},
+      {q:'함수를 선언하는 올바른 방법은?',opts:['function foo(){}','func foo(){}','def foo():','fn foo(){}'],ans:0},
+    ],
+    v2:[{q:'React에서 상태를 관리하는 Hook은?',opts:['useEffect','useState','useRef','useMemo'],ans:1}],
+    v3:[{q:'Next.js App Router에서 서버 컴포넌트의 기본값은?',opts:['클라이언트 컴포넌트','서버 컴포넌트','공유 컴포넌트','동적 컴포넌트'],ans:1}],
+  }
+};
+
+function toEmbed(url){
+  const m1=url.match(/\/file\/d\/([^\/\?]+)/);
+  const m2=url.match(/[?&]id=([^&]+)/);
+  const id=m1?m1[1]:m2?m2[1]:null;
+  return id?`https://drive.google.com/file/d/${id}/preview`:null;
+}
+
+function go(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+  if(id==='s-admin') renderAdminTab(S.adminTab);
+}
+
+/* ── 수강자 로그인 ── */
+function studentLogin(){
+  const name=document.getElementById('st-name').value.trim()||'홍길동';
+  const phone=document.getElementById('st-phone').value.trim().replace(/[^0-9]/g,'')||'01012341234';
+  let u=S.students.find(s=>s.phone===phone);
+  if(!u){u={id:'u'+Date.now(),name,phone,progress:{},assigned:[]};S.students.push(u);}
+  S.student=u;
+  document.getElementById('st-greeting').textContent=u.name+'님의 강의';
+  renderStudentBody();
+  go('s-student');
+}
+
+/* ── 관리자 로그인 ── */
+function adminLogin(){
+  const id=document.getElementById('ad-id').value;
+  const pw=document.getElementById('ad-pw').value;
+  if(id!==ADMIN_ID||pw!==ADMIN_PW){alert('아이디 또는 비밀번호가 틀렸습니다.');return;}
+  go('s-admin');
+}
+
+/* ── 수강자 화면 렌더 ── */
+function renderStudentBody(){
+  const s=S.student;
+  const vids=S.videos.filter(v=>v.active&&(s.assigned||[]).includes(v.id));
+  const body=document.getElementById('student-body');
+
+  if(!vids.length){
+    body.innerHTML=`<div class="empty-state"><div style="width:52px;height:52px;border-radius:50%;background:#f0f0ee;display:flex;align-items:center;justify-content:center;font-size:22px;color:#ccc">▶</div><span style="font-size:14px;color:#aaa">할당된 강의가 없습니다</span></div>`;
+    return;
+  }
+
+  const listHTML=vids.map(v=>{
+    const p=s.progress[v.id]||{done:false,quiz:null};
+    const isSel=S.selectedVid===v.id;
+    const badge=p.done?(p.quiz!==null?'<span class="badge-done">완료</span>':'<span class="badge-quiz">퀴즈 대기</span>'):'';
+    const qt=p.done&&p.quiz!==null?`<div style="font-size:11px;color:#aaa;margin-top:4px">퀴즈 ${p.quiz}점</div>`:'';
+    return `<div class="vcard${isSel?' sel':''}" onclick="selectVideo('${v.id}')">
+      <div class="vcard-top"><div class="vcard-title">${v.title}</div>${badge}</div>
+      ${qt}
+    </div>`;
+  }).join('');
+
+  let playerHTML='';
+  if(S.selectedVid){
+    const v=S.videos.find(x=>x.id===S.selectedVid);
+    const p=s.progress[v.id]||{done:false,quiz:null};
+    playerHTML=renderPlayerHTML(v,p);
+  }
+
+  body.innerHTML=playerHTML+listHTML;
+}
+
+function renderPlayerHTML(v,p){
+  const quizPending=p.done&&p.quiz===null;
+  const quizDone=p.done&&p.quiz!==null;
+  return `
+  <div class="player-card">
+    <div class="player-info">
+      <div class="player-title">${v.title}</div>
+      ${v.desc?`<div class="player-desc">${v.desc}</div>`:''}
+    </div>
+    <div class="gdrive-notice">영상을 끝까지 시청한 후 아래 <b>수강완료 처리</b> 버튼을 눌러주세요.</div>
+    <div class="gdrive-box"><iframe src="${v.src}" allowfullscreen></iframe></div>
+    ${!p.done?`<div class="complete-btn-wrap" style="margin-top:12px"><button class="btn-blue" onclick="markComplete('${v.id}')">수강완료 처리</button></div>`:''}
+    ${p.done?'<div class="done-bar"><span style="font-size:16px">✓</span><span style="font-weight:500">시청 완료</span></div>':''}
+  </div>
+  ${quizPending?`<div class="quiz-card"><div class="quiz-card-hdr">수강 완료! 퀴즈를 응시하세요.</div><div class="quiz-card-body">${renderQuizHTML(v.id)}</div></div>`:''}
+  ${quizDone?`<div class="card" style="flex-direction:row;align-items:center;gap:10px"><span style="font-size:20px">🏆</span><div><div style="font-size:14px;font-weight:500;color:#1a1a1a">수강 및 퀴즈 완료</div><div style="font-size:12px;color:#888;margin-top:2px">퀴즈 점수 ${p.quiz}점 / ${(S.quizzes[v.id]||[]).length}점</div></div></div>`:''}
+  `;
+}
+
+function selectVideo(vid){
+  S.selectedVid=vid;
+  renderStudentBody();
+  window.scrollTo(0,0);
+}
+
+function markComplete(vid){
+  S.student.progress[vid]={done:true,quiz:null};
+  renderStudentBody();
+}
+
+function renderQuizHTML(vid){
+  const qs=S.quizzes[vid]||[];
+  if(!qs.length) return '<div style="font-size:13px;color:#888">이 강의에 퀴즈가 없습니다.</div>';
+  if(S.quizSubmitted[vid]){
+    const correct=qs.filter((q,i)=>S.quizAnswers[vid][i]===q.ans).length;
+    return `<div class="quiz-result"><div class="quiz-score">${correct} / ${qs.length}</div><div class="quiz-msg">${correct===qs.length?'완벽합니다!':correct>=qs.length/2?'잘 하셨습니다!':'다시 복습해보세요.'}</div></div>`;
+  }
+  if(!S.quizAnswers[vid]) S.quizAnswers[vid]=new Array(qs.length).fill(-1);
+  return qs.map((q,qi)=>`
+    <div>
+      <div class="quiz-q">${qi+1}. ${q.q}</div>
+      <div class="quiz-opts">${q.opts.map((o,oi)=>`<button class="quiz-opt${S.quizAnswers[vid][qi]===oi?' sel':''}" onclick="pickOpt('${vid}',${qi},${oi})">${o}</button>`).join('')}</div>
+    </div>`).join('')+
+    `<button class="btn-blue" style="margin-top:4px" onclick="submitQuiz('${vid}')">제출하기</button>`;
+}
+
+function pickOpt(vid,qi,oi){
+  if(!S.quizAnswers[vid]) S.quizAnswers[vid]=[];
+  S.quizAnswers[vid][qi]=oi;
+  const v=S.videos.find(x=>x.id===vid);
+  const p=S.student.progress[vid]||{done:true,quiz:null};
+  const body=document.getElementById('student-body');
+  const playerEl=body.querySelector('.player-card');
+  const quizEl=body.querySelector('.quiz-card');
+  if(quizEl) quizEl.querySelector('.quiz-card-body').innerHTML=renderQuizHTML(vid);
+}
+
+function submitQuiz(vid){
+  const qs=S.quizzes[vid]||[];
+  const ans=S.quizAnswers[vid]||[];
+  if(ans.some(a=>a===-1)){alert('모든 문제에 답해주세요.');return;}
+  S.quizSubmitted[vid]=true;
+  const score=qs.filter((q,i)=>ans[i]===q.ans).length;
+  S.student.progress[vid]={done:true,quiz:score};
+  renderStudentBody();
+}
+
+/* ── 관리자 ── */
+function adminTab(t){
+  S.adminTab=t;
+  ['videos','assign','students'].forEach(k=>document.getElementById('tab-'+k).classList.toggle('on',k===t));
+  renderAdminTab(t);
+}
+function renderAdminTab(t){
+  const el=document.getElementById('admin-body');
+  if(t==='videos') el.innerHTML=renderVideosTab();
+  else if(t==='assign') el.innerHTML=renderAssignTab();
+  else el.innerHTML=renderStatsTab();
+}
+
+function renderVideosTab(){
+  const rows=S.videos.map(v=>`
+  <div class="video-row">
+    <div class="video-info">
+      <div class="video-name">${v.title}</div>
+      <div class="video-meta">순서 ${v.order} · ${v.date}</div>
+    </div>
+    <button class="${v.active?'badge-active':'badge-inactive'}" onclick="toggleActive('${v.id}')">${v.active?'활성':'비활성'}</button>
+    <button class="btn-del" onclick="delVideo('${v.id}')">삭제</button>
+  </div>`).join('');
+
+  return `
+  <div class="card">
+    <div class="card-title">새 강의 추가</div>
+    <div class="help-box">
+      <b>구글 드라이브 링크 가져오는 법</b><br>
+      1. 드라이브에서 영상 파일 길게 누르기<br>
+      2. 공유 → <b>링크가 있는 모든 사용자</b> 선택<br>
+      3. 링크 복사 후 아래에 붙여넣기
+    </div>
+    <input class="inp" placeholder="강의 제목 *" id="up-title"/>
+    <input class="inp" placeholder="강의 설명 (선택)" id="up-desc"/>
+    <input class="inp" placeholder="구글 드라이브 링크 *" id="up-url" type="url"/>
+    <input class="inp" placeholder="순서 (숫자)" id="up-order" type="number" value="${S.videos.length+1}"/>
+    <button class="btn-purple" onclick="addVideo()">강의 추가</button>
+  </div>
+  <div class="card">
+    <div class="card-title">강의 목록 (${S.videos.length}개)</div>
+    ${rows||'<div style="font-size:13px;color:#aaa;text-align:center;padding:8px">추가된 강의가 없습니다.</div>'}
+  </div>`;
+}
+
+function addVideo(){
+  const title=document.getElementById('up-title').value.trim();
+  const desc=document.getElementById('up-desc').value.trim();
+  const url=document.getElementById('up-url').value.trim();
+  const order=parseInt(document.getElementById('up-order').value)||S.videos.length+1;
+  if(!title){alert('강의 제목을 입력해주세요.');return;}
+  if(!url){alert('구글 드라이브 링크를 입력해주세요.');return;}
+  const src=toEmbed(url);
+  if(!src){alert('올바른 구글 드라이브 링크가 아닙니다.\n\n예: https://drive.google.com/file/d/.../view?usp=sharing');return;}
+  S.videos.push({id:'v'+Date.now(),title,desc,src,order,active:true,date:new Date().toISOString().slice(0,10)});
+  alert(`"${title}" 강의가 추가됐습니다!`);
+  renderAdminTab('videos');
+}
+
+function toggleActive(id){
+  const v=S.videos.find(x=>x.id===id);if(v) v.active=!v.active;renderAdminTab('videos');
+}
+function delVideo(id){
+  if(!confirm('정말 삭제하시겠습니까?')) return;
+  S.videos=S.videos.filter(v=>v.id!==id);renderAdminTab('videos');
+}
+
+function renderAssignTab(){
+  if(!S.students.length) return '<div style="font-size:13px;color:#aaa;text-align:center;padding:24px">등록된 수강자가 없습니다.</div>';
+  return S.students.map(s=>`
+  <div class="card">
+    <div class="assign-user-hdr">
+      <div class="avatar">${s.name[0]}</div>
+      <div>
+        <div style="font-size:14px;font-weight:500;color:#1a1a1a">${s.name}</div>
+        <div style="font-size:12px;color:#888">${s.phone}</div>
+      </div>
+      <div style="margin-left:auto;font-size:12px;color:#aaa">${s.assigned.length}/${S.videos.filter(v=>v.active).length}개</div>
+    </div>
+    <div class="assign-chips">
+      ${S.videos.filter(v=>v.active).map(v=>`<button class="chip${s.assigned.includes(v.id)?' on':''}" onclick="toggleAssign('${s.id}','${v.id}')">${s.assigned.includes(v.id)?'✓ ':''}${v.title}</button>`).join('')}
+    </div>
+  </div>`).join('');
+}
+
+function toggleAssign(uid,vid){
+  const s=S.students.find(x=>x.id===uid);if(!s) return;
+  s.assigned.includes(vid)?s.assigned=s.assigned.filter(x=>x!==vid):s.assigned.push(vid);
+  renderAdminTab('assign');
+}
+
+function renderStatsTab(){
+  if(!S.students.length) return '<div style="font-size:13px;color:#aaa;text-align:center;padding:24px">등록된 수강자가 없습니다.</div>';
+  const rows=S.students.map(s=>{
+    const completed=Object.values(s.progress).filter(p=>p.done).length;
+    const vrows=S.videos.map(v=>{
+      const p=s.progress[v.id]||{done:false,quiz:null};
+      return `<div class="stat-vrow">
+        <div class="stat-vtitle">${v.title}</div>
+        <div class="stat-badges">
+          ${p.done?'<span style="color:#16a34a;font-size:11px;font-weight:500">완료</span>':'<span style="color:#ddd;font-size:11px">-</span>'}
+          ${p.quiz!==null?`<span style="color:#1d4ed8;font-size:11px;font-weight:500">${p.quiz}점</span>`:'<span style="color:#ddd;font-size:11px">-</span>'}
+        </div>
+      </div>`;
+    }).join('');
+    return `<div class="card">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="avatar">${s.name[0]}</div>
+        <div style="flex:1">
+          <div class="stat-name">${s.name}</div>
+          <div class="stat-phone">${s.phone}</div>
+        </div>
+        <div style="font-size:12px;color:#16a34a;font-weight:500">${completed}/${S.videos.length} 완료</div>
+      </div>
+      <div class="stat-videos">${vrows}</div>
+    </div>`;
+  }).join('');
+  return `<button class="csv-btn" onclick="downloadCSV()">CSV 다운로드</button>${rows}`;
+}
+
+function downloadCSV(){
+  const rows=[['수강자명','전화번호','강의명','수강완료','퀴즈점수']];
+  S.students.forEach(s=>{
+    S.videos.forEach(v=>{
+      const p=s.progress[v.id]||{done:false,quiz:null};
+      rows.push([s.name,s.phone,v.title,p.done?'완료':'미완료',p.quiz!==null?p.quiz+'점':'-']);
+    });
+  });
+  const csv='\uFEFF'+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download=`수강현황_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
