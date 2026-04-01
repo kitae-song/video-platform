@@ -255,7 +255,16 @@ function studentLogin(){
   renderStudentSidebar();go('s-student');
 }
 
-function adminLogin(){go('s-admin');renderAdminTab('videos');}
+function adminLogin(){
+  const id = document.getElementById('ad-id').value;
+  const pw = document.getElementById('ad-pw').value;
+  if(id !== 'kitae' || pw !== '880116'){
+    alert('아이디 또는 비밀번호가 틀렸습니다.');
+    return;
+  }
+  go('s-admin');
+  renderAdminTab('videos');
+}
 
 function renderStudentSidebar(){
   const s=state.currentStudent;
