@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>강의 플랫폼</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f3;min-height:100vh}
+.screen{display:none;flex-direction:column;min-height:100vh}
+.screen.active{display:flex}
+.inp{width:100%;border:1px solid rgba(0,0,0,0.15);border-radius:10px;padding:12px 14px;font-size:16px;color:#1a1a1a;background:#fff;outline:none;-webkit-appearance:none;transition:border-color .15s;touch-action:manipulation;-webkit-user-select:text;user-select:text}
+.inp:focus{border-color:#3b82f6}
+.btn-blue{width:100%;background:#3b82f6;color:#fff;border:none;padding:14px;border-radius:10px;font-size:16px;font-weight:500;cursor:pointer}
+.btn-blue:active{background:#2563eb}
+.btn-purple{width:100%;background:#7c3aed;color:#fff;border:none;padding:14px;border-radius:10px;font-size:16px;font-weight:500;cursor:pointer}
+.btn-purple:active{background:#6d28d9}
+.btn-outline{background:transparent;border:1px solid rgba(0,0,0,0.15);color:#666;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer}
+.btn-outline:active{background:#f0f0ee}
+.hdr{background:#fff;border-bottom:0.5px solid rgba(0,0,0,0.1);padding:0 16px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:100}
+.hdr-title{font-size:16px;font-weight:500;color:#1a1a1a}
+#s-landing{align-items:stretch;justify-content:flex-start;padding:0}
+.admin-tiny-link{position:absolute;bottom:16px;right:16px;font-size:11px;color:#bbb;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.admin-tiny-link:active{color:#888}
+#s-login-student,#s-login-admin{justify-content:center;padding:24px}
+.login-box{width:100%;max-width:400px;margin:0 auto;background:#fff;border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;gap:18px;border:1px solid rgba(0,0,0,0.08)}
+.login-title{font-size:20px;font-weight:500;color:#1a1a1a}
+.login-sub{font-size:13px;color:#888;margin-top:3px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:500;color:#555}
+.back-link{text-align:center;font-size:13px;color:#aaa;cursor:pointer;padding:4px}
+#s-student{background:#f5f5f3}
+.student-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.vcard{background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.08);padding:14px 16px;cursor:pointer}
+.vcard:active{background:#fafafa}
+.vcard.sel{border-color:#3b82f6;background:#eff6ff}
+.vcard-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px}
+.vcard-title{font-size:14px;font-weight:500;color:#1a1a1a;line-height:1.4}
+.badge-done{font-size:11px;background:#dcfce7;color:#166534;padding:3px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+.badge-quiz{font-size:11px;background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+.vcard-type{font-size:10px;color:#aaa;margin-top:2px}
+.player-card{background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.08);overflow:hidden}
+.player-info{padding:14px 16px 10px}
+.player-title{font-size:15px;font-weight:500;color:#1a1a1a;margin-bottom:4px}
+.player-desc{font-size:13px;color:#888}
+.notice-box{margin:0 16px 10px;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.7}
+.notice-gdrive{background:#fef9c3;border:1px solid #fde68a;color:#92400e}
+.notice-file{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+.gdrive-box{aspect-ratio:16/9;background:#111;overflow:hidden}
+.gdrive-box iframe{width:100%;height:100%;border:none;display:block}
+.video-wrap{aspect-ratio:16/9;background:#111;position:relative;overflow:hidden}
+.video-wrap video{width:100%;height:100%;display:block;outline:none}
+.video-overlay{position:absolute;inset:0;z-index:2}
+.skip-toast{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.82);color:#fff;font-size:12px;padding:7px 14px;border-radius:8px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s;z-index:10}
+.skip-toast.show{opacity:1}
+.video-progress-wrap{padding:10px 16px 4px}
+.video-progress-bg{height:5px;background:#f0f0ee;border-radius:999px;overflow:hidden;cursor:not-allowed}
+.video-progress-fill{height:100%;background:#3b82f6;border-radius:999px;transition:width .3s}
+.video-time{font-size:11px;color:#aaa;margin-top:4px;padding:0 16px 8px}
+.timer-wrap{padding:10px 16px 6px;display:flex;flex-direction:column;gap:5px}
+.timer-bar-bg{height:5px;background:#f0f0ee;border-radius:999px;overflow:hidden}
+.timer-bar-fill{height:100%;background:#3b82f6;border-radius:999px;transition:width 1s linear}
+.timer-row{display:flex;justify-content:space-between;font-size:11px;color:#aaa}
+.btn-complete{width:100%;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;-webkit-appearance:none}
+.btn-complete.locked{background:#e5e7eb;color:#aaa;cursor:not-allowed}
+.btn-complete.unlocked{background:#16a34a;color:#fff}
+.btn-complete.unlocked:active{background:#15803d}
+.complete-wrap{padding:10px 16px 14px}
+.done-bar{margin:10px 16px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:8px;font-size:13px;color:#166534}
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:40px 0}
+.quiz-card{background:#fff;border-radius:12px;border:1px solid #bfdbfe;overflow:hidden}
+.quiz-card-hdr{background:#eff6ff;padding:12px 16px;font-size:13px;font-weight:500;color:#1e40af}
+.quiz-card-body{padding:16px;display:flex;flex-direction:column;gap:18px}
+.quiz-q{font-size:14px;font-weight:500;color:#1a1a1a;margin-bottom:8px}
+.quiz-opts{display:flex;flex-direction:column;gap:8px}
+.quiz-opt{padding:12px 14px;border:1px solid rgba(0,0,0,0.12);border-radius:10px;cursor:pointer;font-size:14px;color:#1a1a1a;background:#fff;text-align:left;width:100%;-webkit-appearance:none}
+.quiz-opt:active{background:#f5f5f3}
+.quiz-opt.sel{border-color:#3b82f6;background:#eff6ff;color:#1e40af}
+.quiz-result{text-align:center;padding:20px 16px;background:#f5f5f3;border-radius:8px}
+.quiz-score{font-size:36px;font-weight:500;color:#3b82f6}
+.quiz-msg{font-size:14px;color:#666;margin-top:6px}
+#s-admin{background:#f5f5f3}
+.admin-tabs{background:#fff;border-bottom:0.5px solid rgba(0,0,0,0.1);display:flex;overflow-x:auto;flex-shrink:0}
+.admin-tabs::-webkit-scrollbar{display:none}
+.atab{padding:13px 18px;font-size:13px;font-weight:500;color:#888;border-bottom:2px solid transparent;white-space:nowrap;cursor:pointer;background:transparent;border-top:none;border-left:none;border-right:none;-webkit-appearance:none}
+.atab.on{color:#7c3aed;border-bottom-color:#7c3aed}
+.admin-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.card{background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.08);padding:16px;display:flex;flex-direction:column;gap:12px}
+.card-title{font-size:14px;font-weight:500;color:#1a1a1a}
+.help-box{border-radius:8px;padding:12px;font-size:12px;line-height:1.9}
+.help-blue{background:#f0f7ff;border:1px solid #bfdbfe;color:#1e3a5f}
+.help-yellow{background:#fefce8;border:1px solid #fde68a;color:#713f12}
+.help-box b{font-weight:500}
+.type-tabs{display:flex;border:1px solid rgba(0,0,0,0.12);border-radius:10px;overflow:hidden}
+.type-tab{flex:1;padding:10px;font-size:13px;font-weight:500;text-align:center;cursor:pointer;background:#fff;color:#888;border:none;-webkit-appearance:none;transition:all .15s}
+.type-tab.on{background:#7c3aed;color:#fff}
+.file-select-row{display:flex;align-items:center;gap:10px}
+.file-select-btn{font-size:13px;color:#666;border:1px solid rgba(0,0,0,0.15);padding:9px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;background:#fff;-webkit-appearance:none}
+.file-name{font-size:12px;color:#aaa;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.up-bar-wrap{height:5px;background:#f0f0ee;border-radius:999px;overflow:hidden}
+.up-bar{height:100%;background:#7c3aed;border-radius:999px;transition:width .3s}
+.video-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:0.5px solid rgba(0,0,0,0.07)}
+.video-row:last-child{border-bottom:none;padding-bottom:0}
+.video-row:first-child{padding-top:0}
+.video-info{flex:1;min-width:0}
+.video-name{font-size:13px;font-weight:500;color:#1a1a1a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.video-meta{font-size:11px;color:#aaa;margin-top:2px}
+.vtag{font-size:10px;padding:2px 6px;border-radius:4px;margin-right:4px}
+.vtag-file{background:#eff6ff;color:#1d4ed8}
+.vtag-gdrive{background:#fef9c3;color:#92400e}
+.badge-active{font-size:11px;background:#dcfce7;color:#166534;padding:4px 10px;border-radius:999px;cursor:pointer;border:none;-webkit-appearance:none}
+.badge-inactive{font-size:11px;background:#f0f0ee;color:#888;padding:4px 10px;border-radius:999px;cursor:pointer;border:none;-webkit-appearance:none}
+.btn-del{font-size:12px;padding:5px 12px;border-radius:8px;border:1px solid #fca5a5;color:#dc2626;background:transparent;cursor:pointer;-webkit-appearance:none}
+.btn-del:active{background:#fef2f2}
+.avatar{width:36px;height:36px;border-radius:50%;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;color:#5b21b6;flex-shrink:0}
+.stat-vrow{display:flex;align-items:center;justify-content:space-between;font-size:12px;gap:8px;padding:5px 0;border-top:0.5px solid rgba(0,0,0,0.06)}
+.stat-vtitle{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888}
+.csv-btn{font-size:12px;padding:7px 14px;border:1px solid rgba(0,0,0,0.12);border-radius:8px;color:#666;background:transparent;cursor:pointer;align-self:flex-end;-webkit-appearance:none}
+.csv-btn:active{background:#f0f0ee}
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:999;font-size:14px;color:#666}
+.spinner{width:32px;height:32px;border:3px solid #e5e7eb;border-top-color:#7c3aed;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(min-width:640px){
+  body{display:flex;align-items:center;justify-content:center;padding:20px}
+  .screen{min-height:0;border-radius:14px;overflow:hidden;border:1px solid rgba(0,0,0,0.08);box-shadow:0 4px 24px rgba(0,0,0,0.06);max-width:480px;width:100%}
+  .screen.active{min-height:600px}
+  #s-student,#s-admin{max-width:720px}
+}
+</style>
+</head>
+<body>
+
+<div id="s-landing" class="screen active">
+  <div class="login-box" style="margin:auto;margin-top:60px">
+    <div>
+      <div class="login-title">강의 플랫폼</div>
+      <div class="login-sub">이름과 전화번호로 입장하세요.</div>
+    </div>
+    <div class="field">
+      <label>이름</label>
+      <input class="inp" id="land-name" placeholder="홍길동" autocomplete="name" autocorrect="off" autocapitalize="off" spellcheck="false" lang="ko" inputmode="text"/>
+    </div>
+    <div class="field">
+      <label>전화번호</label>
+      <input class="inp" id="land-phone" placeholder="01012345678" type="tel" autocomplete="tel" inputmode="numeric"/>
+    </div>
+    <button class="btn-blue" onclick="landingLogin()">입장하기</button>
+  </div>
+  <div class="admin-tiny-link" onclick="go('s-login-admin')">관리자 로그인</div>
+</div>
+
+<div id="s-login-admin" class="screen">
+  <div class="login-box">
+    <div><div class="login-title">관리자 로그인</div><div class="login-sub">관리자 계정으로 로그인하세요.</div></div>
+    <div class="field"><label>아이디</label><input class="inp" id="ad-id" placeholder="admin" autocomplete="username" autocorrect="off" autocapitalize="off" spellcheck="false"/></div>
+    <div class="field"><label>비밀번호</label><input class="inp" type="password" id="ad-pw" placeholder="••••••••" autocomplete="current-password"/></div>
+    <button class="btn-purple" onclick="adminLogin()">로그인</button>
+    <div class="back-link" onclick="go('s-landing')">← 처음으로</div>
+  </div>
+</div>
+
+<div id="s-student" class="screen">
+  <div class="hdr">
+    <div class="hdr-title" id="st-greeting">내 강의</div>
+    <button class="btn-outline" onclick="logout()">로그아웃</button>
+  </div>
+  <div class="student-body" id="student-body">
+    <div class="empty-state">
+      <div style="width:52px;height:52px;border-radius:50%;background:#f0f0ee;display:flex;align-items:center;justify-content:center;font-size:22px;color:#ccc">▶</div>
+      <span style="font-size:14px;color:#aaa">강의를 선택하세요</span>
+    </div>
+  </div>
+</div>
+
+<div id="s-admin" class="screen">
+  <div class="hdr">
+    <div class="hdr-title">관리자</div>
+    <button class="btn-outline" onclick="logout()">로그아웃</button>
+  </div>
+  <div class="admin-tabs">
+    <button class="atab on" id="tab-videos" onclick="adminTab('videos')">영상 관리</button>
+    <button class="atab" id="tab-students" onclick="adminTab('students')">수강자 현황</button>
+  </div>
+  <div class="admin-body" id="admin-body"></div>
+</div>
+
+<script>
+/* ══════════════════════════════
+   ★ 관리자 계정 — 여기서 변경 ★
+   ══════════════════════════════ */
+var ADMIN_ID = 'admin';
+var ADMIN_PW = '1234';
+
+var S = {
+  student: null,
+  selectedVid: null,
+  quizAnswers: {},
+  quizSubmitted: {},
+  curAdminTab: 'videos',
+  uploadType: 'file',
+  pendingFile: null,   // {name, dataUrl}
+  timerInterval: null,
+  timerRemaining: 0,
+  timerTotal: 0,
+  videos: [],
+  students: [],
+  quizzes: {
+    default: [
+      {q:'GS 동해전력에서 시행 중인, 단 한 번의 위반도 엄격히 금지하는 안전 제도의 명칭은 무엇입니까?',hint:'숫자 \'3\'과 야구에서 타자가 물러날 때 쓰는 용어가 포함됩니다.',opts:['세이프티 퍼스트 24','3Zero: 원스트라이크아웃','그린 에너지 세이프티','무재해 100일 작전'],ans:1},
+      {q:'작업 전 사고 예방을 위해 반드시 수행해야 하는 \'핵심이자 필수\' 활동 두 가지는 무엇입니까?',hint:'사전에 위험 요소를 파악하고, 작업 직전 동료들과 내용을 공유하는 미팅 활동입니다.',opts:['도면 검토와 자재 확인','체조와 인원 점검','위험성평가와 TBM','현장 청소와 도구 정비'],ans:2},
+      {q:'추락 사고 예방을 위해 고소 작업 시 반드시 지켜야 할 사항으로 옳은 것은 무엇입니까?',hint:'\'승인된 장비\'와 \'생명줄 연결\'이 사고를 막는 핵심입니다.',opts:['빠른 작업을 위해 허가되지 않은 발판을 사용한다.','안전벨트 착용만으로 충분하며 고리 체결은 선택 사항이다.','높이가 낮은 곳에서는 안전벨트를 착용하지 않아도 된다.','승인된 정규 발판을 사용하고 안전벨트 고리를 생명줄에 확실히 체결한다.'],ans:3},
+      {q:'밀폐공간 출입 전 반드시 확인해야 하는 사항이 아닌 것은 무엇입니까?',hint:'작업자의 생명 유지(산소, 환기, 감시)와 직접적인 관련이 없는 항목을 찾아보세요.',opts:['산소 및 가스 농도 정밀 측정','개인 휴대폰의 배터리 잔량 확인','작업 허가서와 환기 상태 확인','감시인 배치 여부 확인'],ans:1},
+      {q:'기계 불시 가동 사고를 막기 위해 기계 점검 전 조작 장치에 부착해야 하는 표지는 무엇입니까?',hint:'금지를 상징하는 \'빨간색\' 태그를 떠올려 보세요.',opts:['조작금지 표지 (Red Tag)','작업 중 주의 표지 (Yellow Card)','점검 완료 표지 (Green Label)','출입 금지 표지 (No Entry)'],ans:0},
+      {q:'화기 작업 시 화재 예방을 위해 현장에 반드시 배치해야 하는 전문 인력은 누구입니까?',hint:'불꽃이 튀는지, 잔불이 남았는지 집중적으로 \'감시\'하는 사람입니다.',opts:['현장 사진 촬영 기사','전담 화재 감시인','자재 관리 담당자','작업장 청소 인력'],ans:1},
+      {q:'중량물 작업 시 사고 예방을 위해 반드시 금지해야 할 행동은 무엇입니까?',hint:'매달려 있는 무거운 물체 \'아래\'에 사람이 있으면 매우 위험합니다.',opts:['인양물 하부에 작업자가 위치하는 것','인양 도구의 이상 유무를 사전에 점검하는 것','안전 라인을 설치하여 외부인 출입을 통제하는 것','작업 반경을 명확하게 설정하는 것'],ans:0},
+      {q:'작업장에서 안전 관련 문서를 작성할 때의 올바른 태도는 무엇입니까?',hint:'안전 수칙은 \'약속\'입니다. 내용을 정확히 알고 현장에서 즉시 확인할 수 있어야 합니다.',opts:['바쁠 때는 서명만 빠르게 하고 작업을 시작한다.','동료에게 대신 서명을 부탁하여 시간을 절약한다.','내용을 꼼꼼히 확인하고 서명 후 현장에 비치한다.','문서는 사무실에만 보관하고 현장에는 가져가지 않는다.'],ans:2},
+      {q:'기계 점검 작업 시 \'안전하게 작업을 시작할 수 있는 시점\'으로 가장 적절한 것은 언제입니까?',hint:'전원을 꺼도 남아있을 수 있는 \'잔류 에너지\'까지 확인해야 안전합니다.',opts:['전원 스위치만 내린 직후','기계가 멈춘 것처럼 보일 때','동료가 점검이 끝났다고 말해줄 때','모든 에너지원을 차단하고 잔류 에너지가 제거된 것을 직접 확인한 후'],ans:3},
+      {q:'화기 작업 전 주변 환경 정리를 위해 가장 먼저 수행해야 할 조치는 무엇입니까?',hint:'불이 붙을 수 있는 물체(가연물)를 치우는 것이 화재 예방의 첫걸음입니다.',opts:['작업장 바닥에 물을 뿌려 먼지를 제거한다.','주변 가연물을 제거하고 불티 비산 방지 조치를 한다.','조명을 최대한 밝게 조절하여 시야를 확보한다.','작업 집중도를 높이기 위해 음악을 크게 튼다.'],ans:1},
+    ]
+  },
+  quizState: {}  // vid -> { attempt:1|2, picked:[], score:null }
+};
+
+/* ── 유틸 ── */
+function toEmbed(url) {
+  var m1 = url.match(/\/file\/d\/([^\/\?]+)/);
+  var m2 = url.match(/[?&]id=([^&]+)/);
+  var id = m1 ? m1[1] : m2 ? m2[1] : null;
+  return id ? 'https://drive.google.com/file/d/' + id + '/preview' : null;
+}
+function pad2(n){ return String(n).padStart(2,'0'); }
+function fmtSec(s){ s=Math.max(0,Math.round(s)); return pad2(Math.floor(s/60))+':'+pad2(s%60); }
+function showLoading(msg){
+  var d=document.createElement('div'); d.className='loading-overlay'; d.id='loading-overlay';
+  d.innerHTML='<div class="spinner"></div><div>'+(msg||'처리 중...')+'</div>';
+  document.body.appendChild(d);
+}
+function hideLoading(){ var d=document.getElementById('loading-overlay'); if(d) d.remove(); }
+
+function go(id) {
+  document.querySelectorAll('.screen').forEach(function(el){ el.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+  if (id==='s-admin') renderAdminTab(S.curAdminTab);
+}
+function logout() {
+  clearTimer();
+  S.student=null; S.selectedVid=null;
+  go('s-landing');
+}
+
+/* ── 타이머 (구글 드라이브용) ── */
+function clearTimer() {
+  if (S.timerInterval){ clearInterval(S.timerInterval); S.timerInterval=null; }
+}
+function startTimer(vid) {
+  clearTimer();
+  var v=S.videos.find(function(x){ return x.id===vid; });
+  var p=S.student.progress[vid]||{done:false,quiz:null,elapsed:0};
+  var total=v.duration||600;
+  S.timerTotal=total;
+  S.timerRemaining=Math.max(0,total-(p.elapsed||0));
+  updateTimerUI(p.elapsed||0,total);
+  if (S.timerRemaining<=0){ unlockBtn(vid); return; }
+  S.timerInterval=setInterval(function(){
+    if (document.hidden) return;
+    S.timerRemaining=Math.max(0,S.timerRemaining-1);
+    var el=total-S.timerRemaining;
+    if (!S.student.progress[vid]) S.student.progress[vid]={done:false,quiz:null,elapsed:0};
+    S.student.progress[vid].elapsed=el;
+    updateTimerUI(el,total);
+    if (S.timerRemaining<=0){ clearTimer(); unlockBtn(vid); }
+  },1000);
+}
+function updateTimerUI(elapsed,total){
+  var pct=Math.min(100,Math.round((elapsed/total)*100));
+  var fill=document.getElementById('timer-fill');
+  var lbl=document.getElementById('timer-remaining');
+  if (fill) fill.style.width=pct+'%';
+  if (lbl) lbl.textContent=S.timerRemaining<=0?'시청 완료!':'남은 시간 '+fmtSec(S.timerRemaining);
+}
+function unlockBtn(vid){
+  var btn=document.getElementById('complete-btn');
+  if (!btn) return;
+  btn.className='btn-complete unlocked';
+  btn.textContent='✓ 안전교육 완료';
+  btn.onclick=function(){ markComplete(vid); };
+}
+
+/* ── 로그인 ── */
+function landingLogin(){
+  var name=document.getElementById('land-name').value.trim();
+  var phone=document.getElementById('land-phone').value.trim().replace(/[^0-9]/g,'');
+  if (!name){ alert('이름을 입력해주세요.'); return; }
+  if (!phone){ alert('전화번호를 입력해주세요.'); return; }
+  var u=S.students.find(function(s){ return s.phone===phone; });
+  if (!u){ u={id:'u'+Date.now(),name:name,phone:phone,progress:{}}; S.students.push(u); }
+  S.student=u;
+  document.getElementById('st-greeting').textContent=u.name+'님의 강의';
+  S.selectedVid=null;
+  renderStudentBody();
+  go('s-student');
+}
+function studentLogin(){
+  var name=document.getElementById('st-name')?document.getElementById('st-name').value.trim():'';
+  var phone=document.getElementById('st-phone')?document.getElementById('st-phone').value.trim().replace(/[^0-9]/g,''):'';
+  if (!name){ alert('이름을 입력해주세요.'); return; }
+  if (!phone){ alert('전화번호를 입력해주세요.'); return; }
+  var u=S.students.find(function(s){ return s.phone===phone; });
+  if (!u){ u={id:'u'+Date.now(),name:name,phone:phone,progress:{}}; S.students.push(u); }
+  S.student=u;
+  document.getElementById('st-greeting').textContent=u.name+'님의 강의';
+  S.selectedVid=null;
+  renderStudentBody();
+  go('s-student');
+}
+function adminLogin(){
+  var id=document.getElementById('ad-id').value.trim();
+  var pw=document.getElementById('ad-pw').value.trim();
+  if (id!==String(ADMIN_ID).trim()||pw!==String(ADMIN_PW).trim()){
+    alert('아이디 또는 비밀번호가 틀렸습니다.'); return;
+  }
+  go('s-admin');
+}
+
+/* ── 수강자 화면 ── */
+function getActiveVideos(){
+  return S.videos.filter(function(v){ return v.active; });
+}
+
+function renderStudentBody(){
+  var vids=getActiveVideos();
+  var body=document.getElementById('student-body');
+  if (!vids.length){
+    body.innerHTML='<div class="empty-state"><div style="width:52px;height:52px;border-radius:50%;background:#f0f0ee;display:flex;align-items:center;justify-content:center;font-size:22px;color:#ccc">▶</div><span style="font-size:14px;color:#aaa">등록된 강의가 없습니다</span></div>';
+    return;
+  }
+  var playerHTML='';
+  if (S.selectedVid){
+    var pv=S.videos.find(function(x){ return x.id===S.selectedVid; });
+    if (pv&&pv.active){
+      var pp=S.student.progress[S.selectedVid]||{done:false,quiz:null,elapsed:0};
+      playerHTML=buildPlayerHTML(pv,pp);
+    }
+  }
+  var listHTML=vids.map(function(v){
+    var p=S.student.progress[v.id]||{done:false,quiz:null,elapsed:0};
+    var isSel=S.selectedVid===v.id;
+    var badge=p.done?(p.quiz!==null?'<span class="badge-done">완료</span>':'<span class="badge-quiz">퀴즈 대기</span>'):'';
+    var qt=(p.done&&p.quiz!==null)?'<div style="font-size:11px;color:#aaa;margin-top:4px">퀴즈 '+p.quiz+'점</div>':'';
+    var typeTag='<div class="vcard-type">'+(v.type==='file'?'직접 업로드':'구글 드라이브')+'</div>';
+    return '<div class="vcard'+(isSel?' sel':'')+'" onclick="selectVideo(\''+v.id+'\')">'
+      +'<div class="vcard-top"><div class="vcard-title">'+v.title+'</div>'+badge+'</div>'
+      +typeTag+qt+'</div>';
+  }).join('');
+  body.innerHTML=playerHTML+listHTML;
+  if (S.selectedVid){
+    var sv=S.videos.find(function(x){ return x.id===S.selectedVid; });
+    if (sv&&sv.type==='file') bindVideoEvents(S.selectedVid);
+  }
+}
+
+function buildPlayerHTML(v,p){
+  var quizPending=p.done&&p.quiz===null&&!p.passed;
+  var quizDone=p.passed;
+  var playerSection='';
+
+  if (v.type==='file'){
+    playerSection=
+      '<div class="notice-box notice-file">스킵 방지 적용 중 — 앞으로 건너뛰기가 차단됩니다. 되감기는 가능합니다.</div>'
+      +'<div class="video-wrap">'
+      +'<video id="main-video" src="'+v.src+'" controls controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture oncontextmenu="return false" playsinline></video>'
+      +'<div class="video-overlay" id="video-overlay"></div>'
+      +'<div class="skip-toast" id="skip-toast">⚠ 앞으로 건너뛰기는 허용되지 않습니다</div>'
+      +'</div>'
+      +'<div class="video-progress-wrap"><div class="video-progress-bg"><div class="video-progress-fill" id="vid-prog" style="width:0%"></div></div></div>'
+      +'<div class="video-time" id="vid-time">0:00 / 0:00</div>';
+  } else {
+    var total=v.duration||600;
+    var elapsed=p.elapsed||0;
+    var pct=p.done?100:Math.min(100,Math.round((elapsed/total)*100));
+    var remaining=Math.max(0,total-elapsed);
+    var isUnlocked=p.done||remaining<=0;
+    playerSection=
+      '<div class="notice-box notice-gdrive">⚠ 영상을 <b>끝까지 시청</b>해야 완료 버튼이 활성화됩니다.</div>'
+      +'<div class="gdrive-box"><iframe src="'+v.src+'" allowfullscreen></iframe></div>'
+      +(!p.done
+        ?'<div class="timer-wrap"><div class="timer-bar-bg"><div class="timer-bar-fill" id="timer-fill" style="width:'+pct+'%"></div></div>'
+          +'<div class="timer-row"><span>시청 진행률 '+pct+'%</span><span id="timer-remaining">'+(isUnlocked?'시청 완료!':'남은 시간 '+fmtSec(remaining))+'</span></div></div>'
+        :'');
+  }
+
+  var footerHTML='';
+  if (!p.done){
+    if (v.type==='gdrive'){
+      var total2=v.duration||600;
+      var elapsed2=p.elapsed||0;
+      var unlocked2=elapsed2>=total2;
+      var onclk=unlocked2?' onclick="markComplete(\''+v.id+'\')"':'';
+      footerHTML='<div class="complete-wrap"><button id="complete-btn" class="btn-complete '+(unlocked2?'unlocked':'locked')+'"'+onclk+'>'+(unlocked2?'✓ 안전교육 완료':'영상을 끝까지 시청하면 활성화됩니다')+'</button></div>';
+    }
+  } else {
+    footerHTML='<div class="done-bar"><span style="font-size:16px">✓</span><span style="font-weight:500">안전교육 완료</span></div>';
+  }
+
+  var quizHTML='';
+  if (quizPending) quizHTML='<div class="quiz-card"><div class="quiz-card-hdr">안전교육 퀴즈 — 3문제 중 2문제 이상 정답 시 수료</div><div class="quiz-card-body">'+buildQuizHTML(v.id)+'</div></div>';
+  if (quizDone) quizHTML='<div class="card" style="flex-direction:row;align-items:center;gap:10px"><span style="font-size:28px">🎉</span><div><div style="font-size:14px;font-weight:500;color:#16a34a">교육 수료 완료</div><div style="font-size:12px;color:#888;margin-top:2px">안전교육을 성공적으로 이수하였습니다.</div></div></div>';
+
+  return '<div class="player-card"><div class="player-info"><div class="player-title">'+v.title+'</div>'+(v.desc?'<div class="player-desc">'+v.desc+'</div>':'')+'</div>'+playerSection+footerHTML+'</div>'+quizHTML;
+}
+
+/* ── 직접 업로드 영상 이벤트 ── */
+function bindVideoEvents(vid){
+  var video=document.getElementById('main-video');
+  if (!video) return;
+  var maxReached=0;
+  var toastTimer=null;
+
+  function showToast(){
+    var t=document.getElementById('skip-toast');
+    if (!t) return;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(function(){ t.classList.remove('show'); },2000);
+  }
+  function updateUI(cur,dur){
+    var pct=dur>0?Math.min(100,Math.round((cur/dur)*100)):0;
+    var prog=document.getElementById('vid-prog');
+    var time=document.getElementById('vid-time');
+    if (prog) prog.style.width=pct+'%';
+    if (time) time.textContent=fmtSec(cur)+' / '+fmtSec(dur);
+  }
+
+  video.addEventListener('loadedmetadata',function(){
+    updateUI(0,video.duration);
+  });
+  video.addEventListener('timeupdate',function(){
+    if (video.currentTime > maxReached+1.5){
+      video.currentTime=maxReached;
+      showToast(); return;
+    }
+    if (video.currentTime > maxReached) maxReached=video.currentTime;
+    if (!S.student.progress[vid]) S.student.progress[vid]={done:false,quiz:null,elapsed:0};
+    S.student.progress[vid].elapsed=Math.round(maxReached);
+    updateUI(maxReached,video.duration);
+  });
+  video.addEventListener('seeking',function(){
+    if (video.currentTime > maxReached+1.5){
+      video.currentTime=maxReached; showToast();
+    }
+  });
+  video.addEventListener('ended',function(){
+    markComplete(vid);
+  });
+}
+
+function selectVideo(vid){
+  clearTimer();
+  S.selectedVid=vid;
+  renderStudentBody();
+  var v=S.videos.find(function(x){ return x.id===vid; });
+  var p=S.student.progress[vid]||{done:false,quiz:null,elapsed:0};
+  if (!p.done&&v.type==='gdrive') startTimer(vid);
+  window.scrollTo(0,0);
+}
+function markComplete(vid){
+  clearTimer();
+  if (!S.student.progress[vid]) S.student.progress[vid]={done:false,quiz:null,elapsed:0};
+  S.student.progress[vid].done=true;
+  S.student.progress[vid].quiz=null;
+  renderStudentBody();
+}
+
+/* ── 퀴즈 (랜덤 3문제, 2문제 이상 정답 = 수료, 2회 기회) ── */
+function getQuizBank(vid){
+  // 영상별 커스텀 퀴즈가 있으면 사용, 없으면 기본 10문제
+  return S.quizzes[vid] || S.quizzes['default'] || [];
+}
+
+function pickRandom3(vid){
+  var bank = getQuizBank(vid).slice();
+  // 셔플
+  for (var i=bank.length-1;i>0;i--){
+    var j=Math.floor(Math.random()*(i+1));
+    var tmp=bank[i]; bank[i]=bank[j]; bank[j]=tmp;
+  }
+  return bank.slice(0,3);
+}
+
+function initQuizState(vid){
+  if (!S.quizState[vid]){
+    S.quizState[vid]={attempt:1, picked:pickRandom3(vid), answers:[-1,-1,-1], score:null, finalResult:null};
+  }
+}
+
+function buildQuizHTML(vid){
+  initQuizState(vid);
+  var qs=S.quizState[vid];
+
+  // 최종 결과가 나온 경우
+  if (qs.finalResult==='pass'){
+    return '<div style="text-align:center;padding:20px 0">'
+      +'<div style="font-size:40px;margin-bottom:10px">🎉</div>'
+      +'<div style="font-size:18px;font-weight:500;color:#16a34a;margin-bottom:6px">교육 수료!</div>'
+      +'<div style="font-size:13px;color:#888">'+qs.score+'문제 / 3문제 정답으로 수료하였습니다.</div>'
+      +'</div>';
+  }
+  if (qs.finalResult==='fail'){
+    return '<div style="text-align:center;padding:20px 0">'
+      +'<div style="font-size:40px;margin-bottom:10px">⚠️</div>'
+      +'<div style="font-size:18px;font-weight:500;color:#dc2626;margin-bottom:8px">비수료</div>'
+      +'<div style="font-size:13px;color:#666;margin-bottom:16px;line-height:1.7">'
+      +'2회 모두 2문제 미만 정답으로 수료 기준을 충족하지 못했습니다.<br>'
+      +'교육 영상을 처음부터 다시 시청하신 후 퀴즈에 응시해 주세요.</div>'
+      +'<button class="btn-blue" style="max-width:240px;margin:0 auto" onclick="retryFromVideo(\''+vid+'\')">영상 다시 보기</button>'
+      +'</div>';
+  }
+
+  // 채점 결과 표시 (attempt 결과 후, 재시도 전)
+  if (qs.score !== null){
+    var isPassed = qs.score >= 2;
+    var resultColor = isPassed ? '#16a34a' : '#dc2626';
+    var resultText = isPassed ? '수료 🎉' : '미수료';
+    var detail = qs.picked.map(function(q,i){
+      var userAns = qs.answers[i];
+      var correct = userAns === q.ans;
+      return '<div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;background:'+(correct?'#f0fdf4':'#fef2f2')+';border:1px solid '+(correct?'#bbf7d0':'#fecaca')+'">'
+        +'<div style="font-size:12px;font-weight:500;color:#1a1a1a;margin-bottom:4px">'+(i+1)+'. '+q.q+'</div>'
+        +'<div style="font-size:11px;color:'+(correct?'#16a34a':'#dc2626')+'">내 답: '+q.opts[userAns]+' '+(correct?'✓ 정답':'✗ 오답')+'</div>'
+        +(!correct?'<div style="font-size:11px;color:#16a34a">정답: '+q.opts[q.ans]+'</div>':'')
+        +'</div>';
+    }).join('');
+    var retryBtn = (!isPassed && qs.attempt < 2)
+      ? '<button class="btn-blue" style="margin-top:8px" onclick="retryQuiz(\''+vid+'\')">한 번 더 도전하기</button>'
+      : '';
+    var failBtn = (!isPassed && qs.attempt >= 2)
+      ? '<button class="btn-blue" style="margin-top:8px" onclick="applyFail(\''+vid+'\')">결과 확인</button>'
+      : '';
+    var passBtn = isPassed
+      ? '<button class="btn-blue" style="margin-top:8px" onclick="applyPass(\''+vid+'\')">수료 완료하기</button>'
+      : '';
+    return '<div>'
+      +'<div style="text-align:center;margin-bottom:16px">'
+      +'<div style="font-size:28px;font-weight:500;color:'+resultColor+'">'+qs.score+' / 3</div>'
+      +'<div style="font-size:14px;color:'+resultColor+';margin-top:4px">'+resultText+' ('+qs.attempt+'회차)</div>'
+      +'</div>'
+      +detail
+      +retryBtn+failBtn+passBtn
+      +'</div>';
+  }
+
+  // 문제 출제
+  var attemptLabel = qs.attempt === 2
+    ? '<div style="font-size:11px;background:#fef3c7;color:#92400e;padding:4px 10px;border-radius:999px;display:inline-block;margin-bottom:12px">2회차 (마지막 기회)</div>'
+    : '<div style="font-size:11px;background:#eff6ff;color:#1e40af;padding:4px 10px;border-radius:999px;display:inline-block;margin-bottom:12px">1회차</div>';
+
+  var html = attemptLabel + qs.picked.map(function(q,qi){
+    return '<div style="margin-bottom:20px">'
+      +'<div class="quiz-q">'+(qi+1)+'. '+q.q+'</div>'
+      +'<div style="font-size:11px;color:#7c3aed;background:#f5f3ff;border-radius:6px;padding:6px 10px;margin:6px 0 8px;line-height:1.6">💡 힌트: '+q.hint+'</div>'
+      +'<div class="quiz-opts">'+q.opts.map(function(o,oi){
+        var idx = oi;
+        return '<button class="quiz-opt'+(qs.answers[qi]===idx?' sel':'')+'" onclick="pickOpt(\''+vid+'\','+qi+','+idx+')">'+['①','②','③','④'][oi]+' '+o+'</button>';
+      }).join('')+'</div>'
+      +'</div>';
+  }).join('');
+  return html+'<button class="btn-blue" style="margin-top:4px" onclick="submitQuiz(\''+vid+'\')">제출하기</button>';
+}
+
+function pickOpt(vid,qi,oi){
+  initQuizState(vid);
+  S.quizState[vid].answers[qi]=oi;
+  var qb=document.querySelector('.quiz-card-body');
+  if (qb) qb.innerHTML=buildQuizHTML(vid);
+}
+
+function submitQuiz(vid){
+  initQuizState(vid);
+  var qs=S.quizState[vid];
+  if (qs.answers.some(function(a){ return a===-1; })){ alert('모든 문제에 답해주세요.'); return; }
+  var score=qs.picked.filter(function(q,i){ return qs.answers[i]===q.ans; }).length;
+  qs.score=score;
+  var qb=document.querySelector('.quiz-card-body');
+  if (qb) qb.innerHTML=buildQuizHTML(vid);
+}
+
+function retryQuiz(vid){
+  var qs=S.quizState[vid];
+  qs.attempt=2;
+  qs.picked=pickRandom3(vid);
+  qs.answers=[-1,-1,-1];
+  qs.score=null;
+  var qb=document.querySelector('.quiz-card-body');
+  if (qb) qb.innerHTML=buildQuizHTML(vid);
+}
+
+function applyPass(vid){
+  var qs=S.quizState[vid];
+  qs.finalResult='pass';
+  var now=new Date();
+  var passedAt=now.getFullYear()+'.'
+    +String(now.getMonth()+1).padStart(2,'0')+'.'
+    +String(now.getDate()).padStart(2,'0')+' '
+    +String(now.getHours()).padStart(2,'0')+':'
+    +String(now.getMinutes()).padStart(2,'0');
+  if (!S.student.progress[vid]) S.student.progress[vid]={done:true,quiz:null,elapsed:0};
+  S.student.progress[vid].quiz=qs.score;
+  S.student.progress[vid].passed=true;
+  S.student.progress[vid].passedAt=passedAt;
+  renderStudentBody();
+}
+
+function applyFail(vid){
+  S.quizState[vid].finalResult='fail';
+  var qb=document.querySelector('.quiz-card-body');
+  if (qb) qb.innerHTML=buildQuizHTML(vid);
+}
+
+function retryFromVideo(vid){
+  // 진도 초기화 후 영상 다시 시청
+  S.student.progress[vid]={done:false,quiz:null,elapsed:0};
+  delete S.quizState[vid];
+  selectVideo(vid);
+}
+
+/* ── 관리자 ── */
+function adminTab(t){
+  S.curAdminTab=t;
+  ['videos','students'].forEach(function(k){ document.getElementById('tab-'+k).classList.toggle('on',k===t); });
+  renderAdminTab(t);
+}
+function renderAdminTab(t){
+  var el=document.getElementById('admin-body');
+  if (t==='videos') el.innerHTML=buildVideosTab();
+  else el.innerHTML=buildStatsTab();
+}
+
+function setUploadType(t){
+  S.uploadType=t;
+  document.querySelectorAll('.type-tab').forEach(function(el){ el.classList.toggle('on',el.dataset.t===t); });
+  document.getElementById('area-file').style.display=t==='file'?'flex':'none';
+  document.getElementById('area-gdrive').style.display=t==='gdrive'?'block':'none';
+  document.getElementById('area-duration').style.display=t==='gdrive'?'grid':'none';
+}
+
+function buildVideosTab(){
+  var rows=S.videos.map(function(v){
+    var tag='<span class="vtag '+(v.type==='file'?'vtag-file':'vtag-gdrive')+'">'+(v.type==='file'?'파일':'드라이브')+'</span>';
+    return '<div class="video-row"><div class="video-info"><div class="video-name">'+tag+v.title+'</div>'
+      +'<div class="video-meta">순서 '+v.order+' · '+v.date+(v.type==='gdrive'?' · '+Math.floor(v.duration/60)+'분 '+(v.duration%60)+'초':'')+'</div></div>'
+      +'<button class="'+(v.active?'badge-active':'badge-inactive')+'" onclick="toggleActive(\''+v.id+'\')">'+(v.active?'활성':'비활성')+'</button>'
+      +'<button class="btn-del" onclick="delVideo(\''+v.id+'\')">삭제</button></div>';
+  }).join('');
+
+  return '<div class="card"><div class="card-title">새 강의 추가</div>'
+    +'<input class="inp" placeholder="강의 제목 *" id="up-title"/>'
+    +'<input class="inp" placeholder="강의 설명 (선택)" id="up-desc"/>'
+    +'<div class="type-tabs">'
+    +'<button class="type-tab '+(S.uploadType==='file'?'on':'')+'" data-t="file" onclick="setUploadType(\'file\')">파일 직접 업로드</button>'
+    +'<button class="type-tab '+(S.uploadType==='gdrive'?'on':'')+'" data-t="gdrive" onclick="setUploadType(\'gdrive\')">구글 드라이브</button>'
+    +'</div>'
+    +'<div id="area-file" style="display:'+(S.uploadType==='file'?'flex':'none')+';align-items:center;gap:10px">'
+    +'<button class="file-select-btn" onclick="document.getElementById(\'fInput\').click()">파일 선택</button>'
+    +'<span class="file-name" id="fname">'+(S.pendingFile?S.pendingFile.name:'선택된 파일 없음')+'</span>'
+    +'<input type="file" accept="video/*" id="fInput" style="display:none" onchange="onFileSelect(this)"/>'
+    +'</div>'
+    +'<div id="area-gdrive" style="display:'+(S.uploadType==='gdrive'?'block':'none')+'">'
+    +'<div class="help-box help-yellow" style="margin-bottom:8px"><b>구글 드라이브 링크 가져오는 법</b><br>1. 드라이브에서 영상 파일 길게 누르기<br>2. 공유 → <b>링크가 있는 모든 사용자</b> 선택<br>3. 링크 복사 후 아래에 붙여넣기</div>'
+    +'<input class="inp" placeholder="구글 드라이브 링크 *" id="up-url" type="url"/>'
+    +'</div>'
+    +'<div id="area-duration" style="display:'+(S.uploadType==='gdrive'?'grid':'none')+';grid-template-columns:1fr 1fr;gap:8px">'
+    +'<input class="inp" placeholder="영상 길이 (분)" id="up-min" type="number" min="0"/>'
+    +'<input class="inp" placeholder="초 (0~59)" id="up-sec" type="number" min="0" max="59"/>'
+    +'</div>'
+    +'<input class="inp" placeholder="순서 (숫자)" id="up-order" type="number" value="'+(S.videos.length+1)+'"/>'
+    +'<button class="btn-purple" onclick="addVideo()">강의 추가</button>'
+    +'</div>'
+    +'<div class="card"><div class="card-title">강의 목록 ('+S.videos.length+'개)</div>'
+    +(rows||'<div style="font-size:13px;color:#aaa;text-align:center;padding:8px">추가된 강의가 없습니다.</div>')
+    +'</div>';
+}
+
+/* 파일 선택 → FileReader로 base64 변환 (영구 보존) */
+function onFileSelect(input){
+  var file=input.files[0];
+  if (!file) return;
+  showLoading('파일 읽는 중...');
+  var reader=new FileReader();
+  reader.onload=function(e){
+    S.pendingFile={name:file.name, dataUrl:e.target.result};
+    hideLoading();
+    var fn=document.getElementById('fname');
+    if (fn) fn.textContent=file.name;
+  };
+  reader.onerror=function(){
+    hideLoading();
+    alert('파일을 읽을 수 없습니다.');
+  };
+  reader.readAsDataURL(file);
+}
+
+function addVideo(){
+  var title=document.getElementById('up-title').value.trim();
+  var desc=document.getElementById('up-desc').value.trim();
+  var order=parseInt(document.getElementById('up-order').value)||S.videos.length+1;
+  if (!title){ alert('강의 제목을 입력해주세요.'); return; }
+  var newVid;
+  if (S.uploadType==='file'){
+    if (!S.pendingFile){ alert('영상 파일을 선택해주세요.'); return; }
+    newVid={id:'v'+Date.now(),title:title,desc:desc,type:'file',src:S.pendingFile.dataUrl,duration:0,order:order,active:true,date:new Date().toISOString().slice(0,10)};
+    S.pendingFile=null;
+  } else {
+    var url=document.getElementById('up-url').value.trim();
+    var min=parseInt(document.getElementById('up-min').value)||0;
+    var sec=parseInt(document.getElementById('up-sec').value)||0;
+    var duration=(min*60)+sec||600;
+    if (!url){ alert('구글 드라이브 링크를 입력해주세요.'); return; }
+    var src=toEmbed(url);
+    if (!src){ alert('올바른 구글 드라이브 링크가 아닙니다.\n\n예: https://drive.google.com/file/d/.../view?usp=sharing'); return; }
+    newVid={id:'v'+Date.now(),title:title,desc:desc,type:'gdrive',src:src,duration:duration,order:order,active:true,date:new Date().toISOString().slice(0,10)};
+  }
+  S.videos.push(newVid);
+  alert('"'+title+'" 강의가 추가됐습니다!');
+  renderAdminTab('videos');
+}
+
+function toggleActive(id){
+  var v=S.videos.find(function(x){ return x.id===id; });
+  if (v) v.active=!v.active;
+  renderAdminTab('videos');
+}
+function delVideo(id){
+  if (!confirm('정말 삭제하시겠습니까?')) return;
+  S.videos=S.videos.filter(function(v){ return v.id!==id; });
+  renderAdminTab('videos');
+}
+
+function buildStatsTab(){
+  if (!S.students.length) return '<div style="font-size:13px;color:#aaa;text-align:center;padding:24px">등록된 수강자가 없습니다.</div>';
+  var rows=S.students.map(function(s){
+    var completed=Object.values(s.progress).filter(function(p){ return p.passed; }).length;
+    var vrows=S.videos.map(function(v){
+      var p=s.progress[v.id]||{done:false,quiz:null};
+      return '<div class="stat-vrow"><div class="stat-vtitle">'+v.title+'</div><div style="display:flex;gap:6px;flex-shrink:0;align-items:center">'
+        +(p.passed
+          ?'<span style="color:#16a34a;font-size:11px;font-weight:500">수료</span>'
+            +(p.passedAt?'<span style="color:#aaa;font-size:10px">'+p.passedAt+'</span>':'')
+          :'<span style="color:#ddd;font-size:11px">미수료</span>')
+        +'</div></div>';
+    }).join('');
+    return '<div class="card"><div style="display:flex;align-items:center;gap:10px">'
+      +'<div class="avatar">'+s.name[0]+'</div>'
+      +'<div><div style="font-size:14px;font-weight:500;color:#1a1a1a">'+s.name+'</div><div style="font-size:12px;color:#888">'+s.phone+'</div></div>'
+      +'<div style="margin-left:auto;font-size:12px;color:#16a34a;font-weight:500">'+completed+'/'+S.videos.length+' 완료</div>'
+      +'</div>'+vrows+'</div>';
+  }).join('');
+  return '<button class="csv-btn" onclick="downloadCSV()">CSV 다운로드</button>'+rows;
+}
+
+function downloadCSV(){
+  var rows=[['수강자명','전화번호','강의명','영상유형','수료여부','수료일시']];
+  S.students.forEach(function(s){
+    S.videos.forEach(function(v){
+      var p=s.progress[v.id]||{done:false,quiz:null};
+      rows.push([s.name,s.phone,v.title,v.type==='file'?'직접업로드':'구글드라이브',p.passed?'수료':'미수료',p.passedAt||'-']);
+    });
+  });
+  var csv='\uFEFF'+rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\r\n');
+  var a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='수강현황_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+</script>
+</body>
+</html>
