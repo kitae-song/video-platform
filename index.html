@@ -354,8 +354,22 @@ async function loadStudentsTab(){
 }
 async function deleteStudent(phone){if(!confirm('정말 이 수강자를 삭제하시겠습니까?'))return;showLoading('삭제 중...');try{await deleteDoc(doc(db,'students',phone));await loadStudentsTab();}catch(e){alert('오류: '+e.message);}hideLoading();}
 async function resetProgress(phone,videoId){if(!confirm('해당 강의 진도를 초기화하시겠습니까?'))return;showLoading('초기화 중...');try{const snap=await getDocs(collection(db,'students'));let st=null;snap.forEach(d=>{if(d.id===phone)st={id:d.id,...d.data()};});if(st&&st.progress){delete st.progress[videoId];await updateDoc(doc(db,'students',phone),{progress:st.progress});}await loadStudentsTab();}catch(e){alert('오류: '+e.message);}hideLoading();}
-function downloadCSV(){const rows=[['수강자명','전화번호','강의명','영상유형','수료여부','수료일시']];S.students.forEach(s=>{S.videos.forEach(v=>{const p=(s.progress&&s.progress[v.id])||{};rows.push([s.name,s.phone,v.title,v.type==='file'?'직접업로드':'구글드라이브',p.passed?'수료':'미수료',p.passedAt||'-']);});});const csv='\uFEFF'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\r\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='수강현황_'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
-// window에 모든 함수 노출 (onclick에서 호출용)
+function downloadCSV(){
+  const bom='\uFEFF';
+  const nl='\r\n';
+  const rows=[['수강자명','전화번호','강의명','영상유형','수료여부','수료일시']];
+  S.students.forEach(s=>{
+    S.videos.forEach(v=>{
+      const p=(s.progress&&s.progress[v.id])||{};
+      rows.push([s.name,s.phone,v.title,v.type==='file'?'직접업로드':'구글드라이브',p.passed?'수료':'미수료',p.passedAt||'-']);
+    });
+  });
+  const csv=bom+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join(nl);
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='수강현황_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
 window._landingLogin=landingLogin;window._adminLogin=adminLogin;window._logout=logout;window._go=go;
 window._selectVideo=selectVideo;window._markComplete=markComplete;
 window._pickOpt=pickOpt;window._submitQuiz=submitQuiz;window._retryQuiz=retryQuiz;
