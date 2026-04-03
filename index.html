@@ -387,7 +387,7 @@ function buildPlayerHTML(v,p){
   if(!p.done){
     if(v.type==='gdrive'){
       const u=(p.elapsed||0)>=(v.duration||600);
-      footer='<div class="complete-wrap"><button id="complete-btn" class="btn-complete '+(u?'unlocked':'locked')+'" data-vid="'+v.id+'">'+(u?'&#10003; 안전교육 완료':'영상을 끝까지 시청하면 활성화됩니다')+'</button></div>';
+      footer='<div class="complete-wrap"><button id="complete-btn" class="btn-complete '+(u?'unlocked':'locked')+'" data-vid="'+v.id+'">'+(u?'안전교육 완료':'영상을 끝까지 시청하면 활성화됩니다')+'</button></div>';
     }
   }else{
     footer='<div class="done-bar"><span style="font-size:16px">&#10003;</span><span style="font-weight:500">안전교육 완료</span></div>';
