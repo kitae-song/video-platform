@@ -21,6 +21,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .hdr-title{font-size:16px;font-weight:500;color:#1a1a1a}
 #s-landing{align-items:stretch;justify-content:flex-start;padding:0;position:relative}
 .admin-tiny-link{position:absolute;bottom:16px;right:16px;font-size:11px;color:#bbb;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.privacy-wrap{background:#f9f9f7;border:1px solid rgba(0,0,0,0.1);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.privacy-label{display:flex;align-items:flex-start;gap:10px;cursor:pointer}
+.privacy-label input[type=checkbox]{width:18px;height:18px;flex-shrink:0;margin-top:2px;accent-color:#3b82f6;cursor:pointer}
+.privacy-text{font-size:13px;color:#444;line-height:1.5}
+.privacy-detail{font-size:11px;color:#888}
+.privacy-full-link{font-size:11px;color:#3b82f6;cursor:pointer;text-decoration:underline;text-underline-offset:2px;align-self:flex-start}
+.privacy-full{font-size:11px;color:#666;line-height:1.8;background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 12px;margin-top:2px}
 #s-login-admin{justify-content:center;padding:24px}
 .login-box{width:100%;max-width:400px;margin:0 auto;background:#fff;border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;gap:18px;border:1px solid rgba(0,0,0,0.08)}
 .login-title{font-size:20px;font-weight:500;color:#1a1a1a}
@@ -134,7 +141,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <label>전화번호</label>
       <input class="inp" id="land-phone" placeholder="01012345678" type="tel" autocomplete="tel" inputmode="numeric"/>
     </div>
-    <button class="btn-blue" id="btn-landing-login">입장하기</button>
+    <div class="privacy-wrap">
+      <label class="privacy-label">
+        <input type="checkbox" id="privacy-check"/>
+        <span class="privacy-text">
+          개인정보 수집 및 이용에 동의합니다.<br>
+          <span class="privacy-detail">(수집항목: 이름, 전화번호 / 목적: 안전교육 수료 관리 / 보유기간: 교육 종료 후 1년)</span>
+        </span>
+      </label>
+      <div class="privacy-full-link" id="privacy-toggle">전문 보기 ▼</div>
+      <div class="privacy-full" id="privacy-full" style="display:none">
+        본 교육 플랫폼은 안전교육 수료 관리를 목적으로 아래와 같이 개인정보를 수집·이용합니다.<br><br>
+        · 수집항목: 이름, 전화번호<br>
+        · 수집목적: 수강자 식별 및 교육 수료 현황 관리<br>
+        · 보유기간: 교육 종료 후 1년<br><br>
+        위 개인정보 수집·이용에 동의하지 않으실 경우 교육 참여가 제한될 수 있습니다.
+      </div>
+    </div>
+    <button class="btn-blue" id="btn-landing-login" disabled style="opacity:0.4;cursor:not-allowed">입장하기</button>
   </div>
   <div class="admin-tiny-link" id="link-admin">관리자 로그인</div>
 </div>
@@ -182,7 +206,7 @@ import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-ap
 import{getFirestore,collection,doc,getDocs,setDoc,updateDoc,deleteDoc,onSnapshot,query,orderBy}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import{getStorage,ref,uploadBytesResumable,getDownloadURL,deleteObject}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-const ADMIN_ID='kitae', ADMIN_PW='20141035';
+const ADMIN_ID='admin', ADMIN_PW='1234';
 const firebaseConfig={
   apiKey:"AIzaSyBwUDn9KkAiXmuwGIZCB534m9VEX68-SOg",
   authDomain:"video-platform-b05c4.firebaseapp.com",
@@ -277,6 +301,22 @@ function doAdminLogin(){
   go('s-admin');
 }
 
+// 개인정보 체크박스
+const privacyCheck=document.getElementById('privacy-check');
+const loginBtn=document.getElementById('btn-landing-login');
+privacyCheck.addEventListener('change',()=>{
+  loginBtn.disabled=!privacyCheck.checked;
+  loginBtn.style.opacity=privacyCheck.checked?'1':'0.4';
+  loginBtn.style.cursor=privacyCheck.checked?'pointer':'not-allowed';
+});
+// 전문 보기 토글
+document.getElementById('privacy-toggle').addEventListener('click',()=>{
+  const full=document.getElementById('privacy-full');
+  const tog=document.getElementById('privacy-toggle');
+  const isHidden=full.style.display==='none';
+  full.style.display=isHidden?'block':'none';
+  tog.textContent=isHidden?'전문 닫기 ▲':'전문 보기 ▼';
+});
 document.getElementById('btn-landing-login').addEventListener('click',doStudentLogin);
 document.getElementById('land-name').addEventListener('keydown',e=>{if(e.key==='Enter')doStudentLogin();});
 document.getElementById('land-phone').addEventListener('keydown',e=>{if(e.key==='Enter')doStudentLogin();});
@@ -328,8 +368,8 @@ function buildPlayerHTML(v,p){
   let ps='';
   if(v.type==='file'){
     const vs=v.publicSrc||v.src;
-    ps='<div class="notice-box notice-blue">&#9889; 이 영상은 건너뛰기가 제한되어 있습니다.</div>'
-      +'<div class="video-wrap"><video id="main-video" controls controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture playsinline autoplay style="width:100%;height:100%;display:block"><source src="'+vs+'" type="video/mp4"><source src="'+vs+'" type="video/webm"></video>'
+    ps='<div class="notice-box notice-blue">&#9889; 앞으로 건너뛰기 차단 / 되감기 허용</div>'
+      +'<div class="video-wrap"><video id="main-video" controls controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture playsinline style="width:100%;height:100%;display:block"><source src="'+vs+'" type="video/mp4"><source src="'+vs+'" type="video/webm"></video>'
       +'<div class="video-overlay" id="video-overlay"></div>'
       +'<div class="skip-toast" id="skip-toast">&#9888; 앞으로 건너뛰기는 허용되지 않습니다</div></div>'
       +'<div class="video-progress-wrap"><div class="video-progress-bg"><div class="video-progress-fill" id="vid-prog" style="width:0%"></div></div></div>'
