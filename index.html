@@ -497,6 +497,14 @@ async function openFullscreen(id){
     try{if(screen.orientation&&screen.orientation.lock) await screen.orientation.lock('landscape');}catch(e){}
   }
 }
+// 드라이브 영상을 터치하면(=iframe이 포커스를 가져가면) 잠시 뒤 포커스를 사이트로 되돌림.
+// '영상 밖 다른 곳을 누른 것'과 같은 효과를 내서, 드라이브의 검은 조작 화면(소리·설정 버튼)이 바로 닫히게 하려는 것
+window.addEventListener('blur',()=>{
+  setTimeout(()=>{
+    const a=document.activeElement;
+    if(a&&a.tagName==='IFRAME'&&a.closest('.gdrive-box')){a.blur();window.focus();}
+  },700);
+});
 document.addEventListener('fullscreenchange',()=>{
   if(!document.fullscreenElement){try{screen.orientation&&screen.orientation.unlock&&screen.orientation.unlock();}catch(e){}}
 });
