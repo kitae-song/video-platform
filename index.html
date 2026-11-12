@@ -63,6 +63,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* 삼성인터넷 등 모바일: overflow:hidden/border-radius 안의 iframe 영상이 화면 없이 소리만 나오는 문제 회피 */
 .gdrive-box{position:relative;width:100%;height:0;padding-bottom:56.25%;background:#000}
 .gdrive-box iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0;display:block}
+/* 모바일: 드라이브 플레이어가 재생바를 영상 위에 따로 붙여 그리므로, 그만큼 높이를 더 줘서 영상 아래가 잘리지 않게 함 */
+@media(max-width:640px){.gdrive-box{padding-bottom:calc(56.25% + 64px)}}
 .gdrive-open{display:block;text-align:right;font-size:12px;color:#3b82f6;padding:6px 16px 0;text-decoration:underline;text-underline-offset:2px}
 .timer-wrap{padding:10px 16px 6px;display:flex;flex-direction:column;gap:5px}
 .timer-bar-bg{height:5px;background:#f0f0ee;border-radius:999px;overflow:hidden}
