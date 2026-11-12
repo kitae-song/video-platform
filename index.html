@@ -282,6 +282,17 @@ if(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) document.docume
 const pad2=n=>String(n).padStart(2,'0');
 const fmtSec=s=>{s=Math.max(0,Math.round(s));return pad2(Math.floor(s/60))+':'+pad2(s%60);};
 const nowStr=()=>{const n=new Date();return n.getFullYear()+'.'+pad2(n.getMonth()+1)+'.'+pad2(n.getDate())+' '+pad2(n.getHours())+':'+pad2(n.getMinutes());};
+// ── 구글 드라이브 영상을 '드라이브 플레이어(iframe)' 대신 사이트 자체 플레이어로 직접 재생 ──
+// 영상은 그대로 구글 드라이브에 두고, Google Drive API로 영상 파일만 받아와 재생함
+// → 드라이브의 검은 조작 화면·소리/설정 버튼이 아예 없고, 건너뛰기 차단·끝나면 자동 완료가 됨.
+// 조건: Google Cloud에서 이 프로젝트의 'Google Drive API'를 사용 설정해야 함. 실패하면 자동으로 기존 방식(iframe)으로 재생.
+// 끄려면 DRIVE_API_KEY를 '' 로 바꾸면 됨.
+const DRIVE_API_KEY=firebaseConfig.apiKey;
+const gdFail={};
+const driveId=v=>{const m=((v&&v.src)||'').match(/\/file\/d\/([^\/\?]+)/);return m?m[1]:null;};
+const isDirect=v=>!!v&&(v.type==='file'||(v.type==='gdrive'&&!!DRIVE_API_KEY&&!!driveId(v)&&!gdFail[v.id]));
+const videoSrc=v=>v.type==='file'?(v.publicSrc||v.src):'https://www.googleapis.com/drive/v3/files/'+driveId(v)+'?alt=media&key='+DRIVE_API_KEY;
+
 // ── 수료 유효기간: 수료일로부터 3개월. 지나면 자동으로 초기화되어 처음부터 재교육 ──
 const VALID_MONTHS=3;
 const parsePassed=s=>{const m=/^(\d{4})\.(\d{2})\.(\d{2})(?: (\d{2}):(\d{2}))?/.exec(s||'');return m?new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0)):null;};
@@ -346,7 +357,7 @@ async function doStudentLogin(){
     if(first) S.selectedVid=first.id;
     renderStudentBody();
     go('s-student');
-    if(first&&first.type==='gdrive'){
+    if(first&&!isDirect(first)){
       const p=(found.progress&&found.progress[first.id])||{done:false,elapsed:0};
       if(!p.done) startTimer(first.id);
     }
@@ -419,7 +430,7 @@ function renderStudentBody(){
   });
   if(S.selectedVid){
     const sv=S.videos.find(x=>x.id===S.selectedVid);
-    if(sv&&sv.type==='file') bindVideoEvents(S.selectedVid);
+    if(sv&&isDirect(sv)) bindVideoEvents(S.selectedVid);
     const gul=document.getElementById('gd-unlock');
     if(gul) gul.addEventListener('click',()=>{const l=document.getElementById('gd-lock');if(l){l.classList.remove('on');delete l.dataset.t;}}); // 한 번만 누를 수 있게 잠금 해제(누르면 다시 잠김)
     document.querySelectorAll('[data-fs]').forEach(b=>b.addEventListener('click',()=>openFullscreen(b.dataset.fs)));
@@ -431,10 +442,10 @@ function buildPlayerHTML(v,p){
   const quizPending=p.done&&!p.passed;
   const quizDone=p.passed;
   let ps='';
-  if(v.type==='file'){
-    const vs=v.publicSrc||v.src;
-    ps='<div class="notice-box notice-blue">&#9889; 앞으로 건너뛰기 차단 / 되감기 허용</div>'
-      +'<div class="video-wrap" id="file-video-wrap"><video id="main-video" autoplay controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture playsinline style="width:100%;height:100%;display:block"><source src="'+vs+'" type="video/mp4"><source src="'+vs+'" type="video/webm"></video>'
+  if(isDirect(v)){
+    const vs=videoSrc(v);
+    ps='<div class="notice-box notice-blue">&#9889; 영상이 끝나면 자동으로 완료 처리됩니다 · 건너뛰기 불가 · 화면을 누르면 일시정지/재생</div>'
+      +'<div class="video-wrap" id="file-video-wrap"><video id="main-video" src="'+vs+'" autoplay preload="auto" controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture playsinline style="width:100%;height:100%;display:block"></video>'
       +'<div class="video-overlay" id="video-overlay"></div>'
       +'<div class="skip-toast" id="skip-toast">&#9888; 앞으로 건너뛰기는 허용되지 않습니다</div></div>'
       +'<div class="video-progress-wrap"><div class="video-progress-bg"><div class="video-progress-fill" id="vid-prog" style="width:0%"></div></div></div>'
@@ -455,7 +466,7 @@ function buildPlayerHTML(v,p){
   }
   let footer='';
   if(!p.done){
-    if(v.type==='gdrive'){
+    if(!isDirect(v)){
       const u=(p.elapsed||0)>=(v.duration||600);
       footer='<div class="complete-wrap"><button id="complete-btn" class="btn-complete '+(u?'unlocked':'locked')+'" data-vid="'+v.id+'">'+(u?'안전교육 완료':'영상을 끝까지 시청하면 활성화됩니다')+'</button></div>';
     }
@@ -501,7 +512,17 @@ function bindVideoEvents(vid){
     if(pg) pg.style.width=pct+'%';
     if(tm) tm.textContent=fmtSec(cur)+' / '+fmtSec(dur);
   };
+  // 드라이브 영상을 직접 재생하다 실패하면(API 미설정·용량 제한 등) 기존 드라이브 플레이어 방식으로 자동 전환
+  const vinfo=S.videos.find(x=>x.id===vid);
+  const fallbackToIframe=()=>{
+    if(document.getElementById('main-video')!==video||gdFail[vid]) return;
+    gdFail[vid]=true;renderStudentBody();
+    const pr=(S.student.progress&&S.student.progress[vid])||{};
+    if(!pr.done) startTimer(vid);
+  };
+  if(vinfo&&vinfo.type==='gdrive') setTimeout(()=>{if(document.getElementById('main-video')===video&&video.readyState<1) fallbackToIframe();},15000);
   video.addEventListener('error',()=>{
+    if(vinfo&&vinfo.type==='gdrive'){fallbackToIframe();return;}
     const w=video.parentElement;
     if(w) w.innerHTML='<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#aaa;font-size:13px;background:#111;padding:20px;text-align:center"><div style="font-size:24px">&#9888;</div><div>영상을 불러올 수 없습니다</div></div>';
   });
@@ -559,7 +580,7 @@ function selectVideo(vid){
   clearTimer();S.selectedVid=vid;renderStudentBody();
   const v=S.videos.find(x=>x.id===vid);
   const p=(S.student.progress&&S.student.progress[vid])||{done:false,elapsed:0};
-  if(!p.done&&v.type==='gdrive') startTimer(vid);
+  if(!p.done&&!isDirect(v)) startTimer(vid);
   window.scrollTo(0,0);
 }
 
