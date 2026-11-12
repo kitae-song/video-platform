@@ -64,31 +64,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .video-progress-bg{height:5px;background:#f0f0ee;border-radius:999px;overflow:hidden;cursor:not-allowed}
 .video-progress-fill{height:100%;background:#3b82f6;border-radius:999px;transition:width .3s}
 .video-time{font-size:11px;color:#aaa;margin-top:4px;padding:0 16px 8px}
-/* 삼성인터넷 등 모바일: overflow:hidden/border-radius 안의 iframe 영상이 화면 없이 소리만 나오는 문제 회피 */
+
+/* 구글 드라이브 플레이어 스타일 개선 (모바일 검은 화면 방지) */
 .gdrive-box{position:relative;width:100%;height:0;padding-bottom:56.25%;background:#000;overflow:hidden}
-/* 드라이브 플레이어의 버튼(재생바·소리·새창)을 덮개 없이 숨기는 방법:
-   iframe을 영상 칸보다 크게 만들고, 버튼이 있는 부분이 칸 밖으로 나가 잘리게 함.
-   PC: 위아래 60px씩 잘라냄(새창 버튼=위, 재생바=아래). 영상은 가운데 정렬이라 칸에 딱 맞음 */
-.gdrive-box iframe{position:absolute;left:0;top:-60px;width:100%;height:calc(100% + 120px);border:0;display:block}
-/* 모바일: 드라이브 플레이어가 재생바를 영상 위에 따로 붙여 그리므로, 그만큼 높이를 더 줘서 영상 아래가 잘리지 않게 함 */
-/* 휴대폰: 드라이브가 재생바(약 52px)를 영상 위에 붙여 그리므로, 그 줄만 위로 밀어 잘라냄. 어긋나면 52 숫자 두 곳만 조정 */
-.is-mobile .gdrive-box iframe{top:-52px;height:calc(100% + 52px)}
-/* 영상 아래 도구줄: 전체화면 버튼(선택) + 드라이브 링크 */
+.gdrive-box iframe{position:absolute;left:0;top:0;width:100%;height:100%;border:0;display:block}
+.is-mobile .gdrive-box iframe{top:0;height:100%} /* 모바일에서 강제로 밀어올리던 방식을 제거하여 검은 화면(오렌더링) 방지 */
+
 .gd-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:8px 16px 0}
-/* 드라이브 플레이어의 재생바(건너뛰기)·소리·새창 버튼을 가리고 터치를 막는 덮개.
-   위치는 드라이브 화면 배치에 맞춘 값이라, 어긋나면 height/width 숫자만 조정 */
-.gd-mask{position:absolute;z-index:2;background:#000;display:none}
-@media(max-width:640px){
-  .gd-mask-top{display:block;left:0;right:0;top:0;height:64px} /* 모바일: 재생바가 영상 위쪽에 표시됨 */
-}
-@media(min-width:641px){
-  .gd-mask-bottom{display:block;left:0;right:0;bottom:0;height:56px} /* PC·전체화면: 재생바가 아래쪽 */
-  .gd-mask-corner{display:block;right:0;top:0;width:64px;height:64px;background:transparent} /* 우측 상단 새창 버튼 터치 차단 */
-}
-.gd-tools .gdrive-open{padding:0}
-.gd-fs-btn{background:#fff;border:1px solid rgba(0,0,0,0.15);color:#333;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer}
-.gd-fs-btn:active{background:#f0f0ee}
-/* 조작 잠금: 재생을 시작한 뒤에는 투명한 막이 영상 전체를 덮어 건너뛰기·재생구간 조작을 막음 */
 .gd-lock{position:absolute;inset:0;z-index:3;display:none;background:transparent}
 .gd-lock.on{display:block}
 .gd-tools{justify-content:space-between}
@@ -100,6 +82,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .video-wrap:-webkit-full-screen{aspect-ratio:auto;width:100%;height:100%}
 .gdrive-box:-webkit-full-screen{padding:0!important;width:100%!important;height:100%!important;background:#000}
 .gdrive-open{display:block;text-align:right;font-size:12px;color:#3b82f6;padding:6px 16px 0;text-decoration:underline;text-underline-offset:2px}
+
 .timer-wrap{padding:10px 16px 6px;display:flex;flex-direction:column;gap:5px}
 .timer-bar-bg{height:5px;background:#f0f0ee;border-radius:999px;overflow:hidden}
 .timer-bar-fill{height:100%;background:#3b82f6;border-radius:999px;transition:width 1s linear}
@@ -280,13 +263,11 @@ if(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) document.docume
 const pad2=n=>String(n).padStart(2,'0');
 const fmtSec=s=>{s=Math.max(0,Math.round(s));return pad2(Math.floor(s/60))+':'+pad2(s%60);};
 const nowStr=()=>{const n=new Date();return n.getFullYear()+'.'+pad2(n.getMonth()+1)+'.'+pad2(n.getDate())+' '+pad2(n.getHours())+':'+pad2(n.getMinutes());};
-// ── 수료 유효기간: 수료일로부터 3개월. 지나면 자동으로 초기화되어 처음부터 재교육 ──
 const VALID_MONTHS=3;
 const parsePassed=s=>{const m=/^(\d{4})\.(\d{2})\.(\d{2})(?: (\d{2}):(\d{2}))?/.exec(s||'');return m?new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0)):null;};
 const expiryOf=p=>{const d=p&&p.passed?parsePassed(p.passedAt):null;if(!d)return null;d.setMonth(d.getMonth()+VALID_MONTHS);return d;};
 const isExpired=p=>{const e=expiryOf(p);return !!e&&new Date()>=e;};
 const fmtDate=d=>d.getFullYear()+'.'+pad2(d.getMonth()+1)+'.'+pad2(d.getDate());
-// 만료된 수료 기록을 초기화(이전 수료일은 prevPassedAt으로 남김). 바뀐 게 있으면 true
 function purgeExpired(progress){
   let changed=false;
   Object.keys(progress||{}).forEach(vid=>{
@@ -332,7 +313,6 @@ async function doStudentLogin(){
     let found=null;
     snap.forEach(d=>{if(d.id===phone)found={id:d.id,...d.data()};});
     if(!found){const ns={name,phone,progress:{}};await setDoc(doc(db,'students',phone),ns);found={id:phone,...ns};}
-    // 수료 후 3개월이 지난 강의는 자동 초기화 → 처음부터 다시 수강
     if(found.progress&&purgeExpired(found.progress)){
       await updateDoc(doc(db,'students',phone),{progress:found.progress});
       alert('수료 후 '+VALID_MONTHS+'개월이 지나 재교육 대상입니다.\n영상을 다시 시청하고 퀴즈를 완료해 주세요.');
@@ -360,7 +340,6 @@ function doAdminLogin(){
   go('s-admin');
 }
 
-// 개인정보 체크박스
 const privacyCheck=document.getElementById('privacy-check');
 const loginBtn=document.getElementById('btn-landing-login');
 privacyCheck.addEventListener('change',()=>{
@@ -368,7 +347,6 @@ privacyCheck.addEventListener('change',()=>{
   loginBtn.style.opacity=privacyCheck.checked?'1':'0.4';
   loginBtn.style.cursor=privacyCheck.checked?'pointer':'not-allowed';
 });
-// 전문 보기 토글
 document.getElementById('privacy-toggle').addEventListener('click',()=>{
   const full=document.getElementById('privacy-full');
   const tog=document.getElementById('privacy-toggle');
@@ -419,7 +397,7 @@ function renderStudentBody(){
     const sv=S.videos.find(x=>x.id===S.selectedVid);
     if(sv&&sv.type==='file') bindVideoEvents(S.selectedVid);
     const gul=document.getElementById('gd-unlock');
-    if(gul) gul.addEventListener('click',()=>{const l=document.getElementById('gd-lock');if(l){l.classList.remove('on');delete l.dataset.t;}}); // 한 번만 누를 수 있게 잠금 해제(누르면 다시 잠김)
+    if(gul) gul.addEventListener('click',()=>{const l=document.getElementById('gd-lock');if(l){l.classList.remove('on');delete l.dataset.t;}});
     document.querySelectorAll('[data-fs]').forEach(b=>b.addEventListener('click',()=>openFullscreen(b.dataset.fs)));
     bindQuizButtons();
   }
@@ -443,9 +421,8 @@ function buildPlayerHTML(v,p){
     const pct=p.done?100:Math.min(100,Math.round((elapsed/total)*100));
     const remaining=Math.max(0,total-elapsed);
     const isU=p.done||remaining<=0;
-    ps='<div class="notice-box notice-yellow">&#9888; 영상을 <b>끝까지 시청</b>해야 완료 버튼이 활성화됩니다.<span class="m-only"><br>&#128073; ▶를 누른 뒤 <b>화면이 어두우면 영상을 2~3번 더 눌러주세요.</b> (8초 뒤에는 영상 조작이 잠깁니다)</span></div>'
+    ps='<div class="notice-box notice-yellow">&#9888; 최초 재생 시 화면이 검게 보이면 <b>플레이어 안쪽을 1~2회 터치</b>해 주세요.<span class="m-only"><br>영상을 끝까지 시청해야 완료 버튼이 활성화됩니다.</span></div>'
       +'<div class="gdrive-box" id="gdrive-box"><iframe src="'+v.src+(v.src.indexOf('?')>-1?'&':'?')+'autoplay=1" allow="autoplay; encrypted-media"></iframe>'
-      // ↑ 드라이브 플레이어가 재생 시 스스로 전체화면으로 전환하지 못하도록 iframe의 전체화면 권한을 뺌 (전체화면은 아래 '전체화면 활성화' 버튼으로만)
       +'<div class="gd-lock" id="gd-lock"></div></div>'
       +'<div class="gd-tools"><button class="gd-unlock" id="gd-unlock" type="button">영상이 멈췄나요? 여기를 누른 뒤 ▶ 누르기</button><button class="gd-fs-btn" data-fs="gdrive-box" type="button">&#x26F6; 전체화면 활성화</button></div>'
       +(!p.done?'<div class="timer-wrap"><div class="timer-bar-bg"><div class="timer-bar-fill" id="timer-fill" style="width:'+pct+'%"></div></div><div class="timer-row"><span>진행률 '+pct+'%</span><span id="timer-remaining">'+(isU?'시청 완료!':'남은 시간 '+fmtSec(remaining))+'</span></div></div>':'');
@@ -510,10 +487,8 @@ function bindVideoEvents(vid){
   });
   video.addEventListener('seeking',()=>{if(video.currentTime>maxReached+1.5){video.currentTime=maxReached;showToast();}});
   video.addEventListener('ended',()=>markComplete(vid));
-  // 페이지 진입 시 자동재생 (입장하기/강의 선택 터치 직후라 소리 있는 재생이 대부분 허용됨)
   const p=video.play();
   if(p&&p.catch) p.catch(()=>{});
-  // 재생바·소리 버튼을 없앴으므로, 영상 화면을 터치하면 재생/일시정지
   const ov=document.getElementById('video-overlay');
   if(ov) ov.addEventListener('click',()=>{if(video.paused){const q=video.play();if(q&&q.catch)q.catch(()=>{});}else video.pause();});
 }
@@ -527,15 +502,11 @@ async function openFullscreen(id){
     try{if(screen.orientation&&screen.orientation.lock) await screen.orientation.lock('landscape');}catch(e){}
   }
 }
-// 드라이브 영상을 터치하면(=iframe이 포커스를 가져가면) 잠시 뒤 포커스를 사이트로 되돌림.
-// '영상 밖 다른 곳을 누른 것'과 같은 효과를 내서, 드라이브의 검은 조작 화면(소리·설정 버튼)이 바로 닫히게 하려는 것
+
 window.addEventListener('blur',()=>{
-  // 영상을 한 번 누르면(재생 시작) 즉시 조작 잠금 → 이후 건너뛰기·재생구간 조작 불가
   setTimeout(()=>{
     const a=document.activeElement,lock=document.getElementById('gd-lock');
     if(lock&&a&&a.tagName==='IFRAME'&&a.closest('.gdrive-box')){
-      // PC: 1번 누르면 바로 잠금.
-      // 휴대폰: 첫 터치 후 8초 동안은 자유롭게 터치 가능(재생 + 드라이브의 검은 조작 화면을 여러 번 눌러 닫기), 그 뒤 잠금
       if(!lock.dataset.t){
         lock.dataset.t=1;
         if(document.documentElement.classList.contains('is-mobile')) setTimeout(()=>{if(lock.isConnected&&lock.dataset.t)lock.classList.add('on');},8000);
