@@ -66,12 +66,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .gdrive-box iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0;display:block}
 /* 모바일: 드라이브 플레이어가 재생바를 영상 위에 따로 붙여 그리므로, 그만큼 높이를 더 줘서 영상 아래가 잘리지 않게 함 */
 @media(max-width:640px){.gdrive-box{padding-bottom:calc(56.25% + 64px)}}
-/* 모바일: 드라이브 플레이어는 작은 칸 안에서 배치가 깨지므로, 탭하면 전체화면으로 띄워서 재생 */
-.gd-play{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;width:100%;height:100%;background:rgba(0,0,0,0.72);color:#fff;border:0;font-size:14px;font-weight:500;cursor:pointer}
-.gd-play-ic{width:60px;height:60px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:24px;padding-left:4px}
-.gd-play-sub{font-size:11px;color:#ccc;font-weight:400}
-@media(min-width:641px) and (pointer:fine){.gd-play{display:none}}
+/* 영상 아래 도구줄: 전체화면 버튼(선택) + 드라이브 링크 */
+.gd-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 16px 0}
+.gd-tools .gdrive-open{padding:0}
+.gd-fs-btn{background:#fff;border:1px solid rgba(0,0,0,0.15);color:#333;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer}
+.gd-fs-btn:active{background:#f0f0ee}
 .gdrive-box:fullscreen{padding:0!important;width:100%!important;height:100%!important;background:#000}
+.video-wrap:fullscreen{aspect-ratio:auto;width:100%;height:100%}
+.video-wrap:-webkit-full-screen{aspect-ratio:auto;width:100%;height:100%}
 .gdrive-box:-webkit-full-screen{padding:0!important;width:100%!important;height:100%!important;background:#000}
 .gdrive-open{display:block;text-align:right;font-size:12px;color:#3b82f6;padding:6px 16px 0;text-decoration:underline;text-underline-offset:2px}
 .timer-wrap{padding:10px 16px 6px;display:flex;flex-direction:column;gap:5px}
@@ -370,8 +372,7 @@ function renderStudentBody(){
   if(S.selectedVid){
     const sv=S.videos.find(x=>x.id===S.selectedVid);
     if(sv&&sv.type==='file') bindVideoEvents(S.selectedVid);
-    const gp=document.getElementById('gd-play');
-    if(gp) gp.addEventListener('click',openGdriveFullscreen);
+    document.querySelectorAll('[data-fs]').forEach(b=>b.addEventListener('click',()=>openFullscreen(b.dataset.fs)));
     bindQuizButtons();
   }
 }
@@ -383,20 +384,22 @@ function buildPlayerHTML(v,p){
   if(v.type==='file'){
     const vs=v.publicSrc||v.src;
     ps='<div class="notice-box notice-blue">&#9889; 앞으로 건너뛰기 차단 / 되감기 허용</div>'
-      +'<div class="video-wrap"><video id="main-video" controls controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture playsinline style="width:100%;height:100%;display:block"><source src="'+vs+'" type="video/mp4"><source src="'+vs+'" type="video/webm"></video>'
+      +'<div class="video-wrap" id="file-video-wrap"><video id="main-video" autoplay controlscontrolslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture playsinline style="width:100%;height:100%;display:block"><source src="'+vs+'" type="video/mp4"><source src="'+vs+'" type="video/webm"></video>'
       +'<div class="video-overlay" id="video-overlay"></div>'
       +'<div class="skip-toast" id="skip-toast">&#9888; 앞으로 건너뛰기는 허용되지 않습니다</div></div>'
       +'<div class="video-progress-wrap"><div class="video-progress-bg"><div class="video-progress-fill" id="vid-prog" style="width:0%"></div></div></div>'
-      +'<div class="video-time" id="vid-time">0:00 / 0:00</div>';
+      +'<div class="video-time" id="vid-time">0:00 / 0:00</div>'
+      +'<div class="gd-tools" style="padding-top:0"><button class="gd-fs-btn" data-fs="file-video-wrap" type="button">&#x26F6; 전체화면 활성화</button></div>';
   }else{
     const total=v.duration||600,elapsed=p.elapsed||0;
     const pct=p.done?100:Math.min(100,Math.round((elapsed/total)*100));
     const remaining=Math.max(0,total-elapsed);
     const isU=p.done||remaining<=0;
     ps='<div class="notice-box notice-yellow">&#9888; 영상을 <b>끝까지 시청</b>해야 완료 버튼이 활성화됩니다.</div>'
-      +'<div class="gdrive-box" id="gdrive-box"><iframe src="'+v.src+'" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen></iframe>'
-      +'<button class="gd-play" id="gd-play" type="button"><span class="gd-play-ic">&#9654;</span><span>눌러서 영상 보기</span><span class="gd-play-sub">전체화면으로 열립니다 · 화면의 ▶를 한 번 더 눌러 재생</span></button></div>'
-      +'<a class="gdrive-open" href="'+v.src.replace(/\/preview$/,'/view')+'" target="_blank" rel="noopener">영상이 안 보이면 여기를 눌러 드라이브에서 보기 ↗</a>'
+      +'<div class="gdrive-box" id="gdrive-box"><iframe src="'+v.src+(v.src.indexOf('?')>-1?'&':'?')+'autoplay=1" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen></iframe>'
+      +'</div>'
+      +'<div class="gd-tools"><button class="gd-fs-btn" data-fs="gdrive-box" type="button">&#x26F6; 전체화면 활성화</button>'
+      +'<a class="gdrive-open" href="'+v.src.replace(/\/preview$/,'/view')+'" target="_blank" rel="noopener">드라이브에서 보기 ↗</a></div>'
       +(!p.done?'<div class="timer-wrap"><div class="timer-bar-bg"><div class="timer-bar-fill" id="timer-fill" style="width:'+pct+'%"></div></div><div class="timer-row"><span>진행률 '+pct+'%</span><span id="timer-remaining">'+(isU?'시청 완료!':'남은 시간 '+fmtSec(remaining))+'</span></div></div>':'');
   }
   let footer='';
@@ -459,12 +462,13 @@ function bindVideoEvents(vid){
   });
   video.addEventListener('seeking',()=>{if(video.currentTime>maxReached+1.5){video.currentTime=maxReached;showToast();}});
   video.addEventListener('ended',()=>markComplete(vid));
+  // 페이지 진입 시 자동재생 (입장하기/강의 선택 터치 직후라 소리 있는 재생이 대부분 허용됨)
+  const p=video.play();
+  if(p&&p.catch) p.catch(()=>{});
 }
 
-async function openGdriveFullscreen(){
-  const box=document.getElementById('gdrive-box');
-  const btn=document.getElementById('gd-play');
-  if(btn) btn.remove(); // 덮개를 없애 드라이브 플레이어를 직접 조작할 수 있게 함
+async function openFullscreen(id){
+  const box=document.getElementById(id);
   if(!box) return;
   const req=box.requestFullscreen||box.webkitRequestFullscreen;
   if(req){
