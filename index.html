@@ -70,7 +70,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* 모바일: 드라이브 플레이어가 재생바를 영상 위에 따로 붙여 그리므로, 그만큼 높이를 더 줘서 영상 아래가 잘리지 않게 함 */
 @media(max-width:640px){.gdrive-box{padding-bottom:calc(56.25% + 64px)}}
 /* 영상 아래 도구줄: 전체화면 버튼(선택) + 드라이브 링크 */
-.gd-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 16px 0}
+.gd-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:8px 16px 0}
+/* 드라이브 플레이어의 재생바(건너뛰기)·소리·새창 버튼을 가리고 터치를 막는 덮개.
+   위치는 드라이브 화면 배치에 맞춘 값이라, 어긋나면 height/width 숫자만 조정 */
+.gd-mask{position:absolute;z-index:2;background:#000;display:none}
+@media(max-width:640px){
+  .gd-mask-top{display:block;left:0;right:0;top:0;height:64px} /* 모바일: 재생바가 영상 위쪽에 표시됨 */
+}
+@media(min-width:641px){
+  .gd-mask-bottom{display:block;left:0;right:0;bottom:0;height:56px} /* PC·전체화면: 재생바가 아래쪽 */
+  .gd-mask-corner{display:block;right:0;top:0;width:64px;height:64px;background:transparent} /* 우측 상단 새창 버튼 터치 차단 */
+}
 .gd-tools .gdrive-open{padding:0}
 .gd-fs-btn{background:#fff;border:1px solid rgba(0,0,0,0.15);color:#333;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer}
 .gd-fs-btn:active{background:#f0f0ee}
@@ -387,7 +397,7 @@ function buildPlayerHTML(v,p){
   if(v.type==='file'){
     const vs=v.publicSrc||v.src;
     ps='<div class="notice-box notice-blue">&#9889; 앞으로 건너뛰기 차단 / 되감기 허용</div>'
-      +'<div class="video-wrap" id="file-video-wrap"><video id="main-video" autoplay controlscontrolslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture playsinline style="width:100%;height:100%;display:block"><source src="'+vs+'" type="video/mp4"><source src="'+vs+'" type="video/webm"></video>'
+      +'<div class="video-wrap" id="file-video-wrap"><video id="main-video" autoplay controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture playsinline style="width:100%;height:100%;display:block"><source src="'+vs+'" type="video/mp4"><source src="'+vs+'" type="video/webm"></video>'
       +'<div class="video-overlay" id="video-overlay"></div>'
       +'<div class="skip-toast" id="skip-toast">&#9888; 앞으로 건너뛰기는 허용되지 않습니다</div></div>'
       +'<div class="video-progress-wrap"><div class="video-progress-bg"><div class="video-progress-fill" id="vid-prog" style="width:0%"></div></div></div>'
@@ -401,9 +411,9 @@ function buildPlayerHTML(v,p){
     ps='<div class="notice-box notice-yellow">&#9888; 영상을 <b>끝까지 시청</b>해야 완료 버튼이 활성화됩니다.</div>'
       +'<div class="gdrive-box" id="gdrive-box"><iframe src="'+v.src+(v.src.indexOf('?')>-1?'&':'?')+'autoplay=1" allow="autoplay; encrypted-media"></iframe>'
       // ↑ 드라이브 플레이어가 재생 시 스스로 전체화면으로 전환하지 못하도록 iframe의 전체화면 권한을 뺌 (전체화면은 아래 '전체화면 활성화' 버튼으로만)
+      +'<div class="gd-mask gd-mask-top"></div><div class="gd-mask gd-mask-bottom"></div><div class="gd-mask gd-mask-corner"></div>'
       +'</div>'
-      +'<div class="gd-tools"><button class="gd-fs-btn" data-fs="gdrive-box" type="button">&#x26F6; 전체화면 활성화</button>'
-      +'<a class="gdrive-open" href="'+v.src.replace(/\/preview$/,'/view')+'" target="_blank" rel="noopener">드라이브에서 보기 ↗</a></div>'
+      +'<div class="gd-tools"><button class="gd-fs-btn" data-fs="gdrive-box" type="button">&#x26F6; 전체화면 활성화</button></div>'
       +(!p.done?'<div class="timer-wrap"><div class="timer-bar-bg"><div class="timer-bar-fill" id="timer-fill" style="width:'+pct+'%"></div></div><div class="timer-row"><span>진행률 '+pct+'%</span><span id="timer-remaining">'+(isU?'시청 완료!':'남은 시간 '+fmtSec(remaining))+'</span></div></div>':'');
   }
   let footer='';
@@ -469,6 +479,9 @@ function bindVideoEvents(vid){
   // 페이지 진입 시 자동재생 (입장하기/강의 선택 터치 직후라 소리 있는 재생이 대부분 허용됨)
   const p=video.play();
   if(p&&p.catch) p.catch(()=>{});
+  // 재생바·소리 버튼을 없앴으므로, 영상 화면을 터치하면 재생/일시정지
+  const ov=document.getElementById('video-overlay');
+  if(ov) ov.addEventListener('click',()=>{if(video.paused){const q=video.play();if(q&&q.catch)q.catch(()=>{});}else video.pause();});
 }
 
 async function openFullscreen(id){
