@@ -65,10 +65,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .video-progress-fill{height:100%;background:#3b82f6;border-radius:999px;transition:width .3s}
 .video-time{font-size:11px;color:#aaa;margin-top:4px;padding:0 16px 8px}
 /* 삼성인터넷 등 모바일: overflow:hidden/border-radius 안의 iframe 영상이 화면 없이 소리만 나오는 문제 회피 */
-.gdrive-box{position:relative;width:100%;height:0;padding-bottom:56.25%;background:#000}
-.gdrive-box iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0;display:block}
+.gdrive-box{position:relative;width:100%;height:0;padding-bottom:56.25%;background:#000;overflow:hidden}
+/* 드라이브 플레이어의 버튼(재생바·소리·새창)을 덮개 없이 숨기는 방법:
+   iframe을 영상 칸보다 크게 만들고, 버튼이 있는 부분이 칸 밖으로 나가 잘리게 함.
+   PC: 위아래 60px씩 잘라냄(새창 버튼=위, 재생바=아래). 영상은 가운데 정렬이라 칸에 딱 맞음 */
+.gdrive-box iframe{position:absolute;left:0;top:-60px;width:100%;height:calc(100% + 120px);border:0;display:block}
 /* 모바일: 드라이브 플레이어가 재생바를 영상 위에 따로 붙여 그리므로, 그만큼 높이를 더 줘서 영상 아래가 잘리지 않게 함 */
-@media(max-width:640px){.gdrive-box{padding-bottom:calc(56.25% + 64px)}}
+/* 휴대폰: 드라이브가 재생바(약 52px)를 영상 위에 붙여 그리므로, 그 줄만 위로 밀어 잘라냄. 어긋나면 52 숫자 두 곳만 조정 */
+.is-mobile .gdrive-box iframe{top:-52px;height:calc(100% + 52px)}
 /* 영상 아래 도구줄: 전체화면 버튼(선택) + 드라이브 링크 */
 .gd-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:8px 16px 0}
 /* 드라이브 플레이어의 재생바(건너뛰기)·소리·새창 버튼을 가리고 터치를 막는 덮개.
@@ -265,6 +269,7 @@ const S={
   ]
 };
 
+if(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) document.documentElement.classList.add('is-mobile');
 const pad2=n=>String(n).padStart(2,'0');
 const fmtSec=s=>{s=Math.max(0,Math.round(s));return pad2(Math.floor(s/60))+':'+pad2(s%60);};
 const nowStr=()=>{const n=new Date();return n.getFullYear()+'.'+pad2(n.getMonth()+1)+'.'+pad2(n.getDate())+' '+pad2(n.getHours())+':'+pad2(n.getMinutes());};
@@ -411,7 +416,6 @@ function buildPlayerHTML(v,p){
     ps='<div class="notice-box notice-yellow">&#9888; 영상을 <b>끝까지 시청</b>해야 완료 버튼이 활성화됩니다.</div>'
       +'<div class="gdrive-box" id="gdrive-box"><iframe src="'+v.src+(v.src.indexOf('?')>-1?'&':'?')+'autoplay=1" allow="autoplay; encrypted-media"></iframe>'
       // ↑ 드라이브 플레이어가 재생 시 스스로 전체화면으로 전환하지 못하도록 iframe의 전체화면 권한을 뺌 (전체화면은 아래 '전체화면 활성화' 버튼으로만)
-      +'<div class="gd-mask gd-mask-top"></div><div class="gd-mask gd-mask-bottom"></div><div class="gd-mask gd-mask-corner"></div>'
       +'</div>'
       +'<div class="gd-tools"><button class="gd-fs-btn" data-fs="gdrive-box" type="button">&#x26F6; 전체화면 활성화</button></div>'
       +(!p.done?'<div class="timer-wrap"><div class="timer-bar-bg"><div class="timer-bar-fill" id="timer-fill" style="width:'+pct+'%"></div></div><div class="timer-row"><span>진행률 '+pct+'%</span><span id="timer-remaining">'+(isU?'시청 완료!':'남은 시간 '+fmtSec(remaining))+'</span></div></div>':'');
