@@ -278,6 +278,21 @@ if(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) document.docume
 const pad2=n=>String(n).padStart(2,'0');
 const fmtSec=s=>{s=Math.max(0,Math.round(s));return pad2(Math.floor(s/60))+':'+pad2(s%60);};
 const nowStr=()=>{const n=new Date();return n.getFullYear()+'.'+pad2(n.getMonth()+1)+'.'+pad2(n.getDate())+' '+pad2(n.getHours())+':'+pad2(n.getMinutes());};
+// ── 수료 유효기간: 수료일로부터 3개월. 지나면 자동으로 초기화되어 처음부터 재교육 ──
+const VALID_MONTHS=3;
+const parsePassed=s=>{const m=/^(\d{4})\.(\d{2})\.(\d{2})(?: (\d{2}):(\d{2}))?/.exec(s||'');return m?new Date(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0)):null;};
+const expiryOf=p=>{const d=p&&p.passed?parsePassed(p.passedAt):null;if(!d)return null;d.setMonth(d.getMonth()+VALID_MONTHS);return d;};
+const isExpired=p=>{const e=expiryOf(p);return !!e&&new Date()>=e;};
+const fmtDate=d=>d.getFullYear()+'.'+pad2(d.getMonth()+1)+'.'+pad2(d.getDate());
+// 만료된 수료 기록을 초기화(이전 수료일은 prevPassedAt으로 남김). 바뀐 게 있으면 true
+function purgeExpired(progress){
+  let changed=false;
+  Object.keys(progress||{}).forEach(vid=>{
+    const p=progress[vid];
+    if(isExpired(p)){progress[vid]={done:false,elapsed:0,prevPassedAt:p.passedAt};changed=true;}
+  });
+  return changed;
+}
 const toEmbed=url=>{const m=url.match(/\/file\/d\/([^\/\?]+)/)||url.match(/[?&]id=([^&]+)/);return m?'https://drive.google.com/file/d/'+m[1]+'/preview':null;};
 
 function showLoading(msg){
@@ -315,6 +330,11 @@ async function doStudentLogin(){
     let found=null;
     snap.forEach(d=>{if(d.id===phone)found={id:d.id,...d.data()};});
     if(!found){const ns={name,phone,progress:{}};await setDoc(doc(db,'students',phone),ns);found={id:phone,...ns};}
+    // 수료 후 3개월이 지난 강의는 자동 초기화 → 처음부터 다시 수강
+    if(found.progress&&purgeExpired(found.progress)){
+      await updateDoc(doc(db,'students',phone),{progress:found.progress});
+      alert('수료 후 '+VALID_MONTHS+'개월이 지나 재교육 대상입니다.\n영상을 다시 시청하고 퀴즈를 완료해 주세요.');
+    }
     S.student=found;
     document.getElementById('st-greeting').textContent=found.name+'님의 강의';
     S.selectedVid=null;
@@ -385,7 +405,8 @@ function renderStudentBody(){
     const p=(S.student.progress&&S.student.progress[v.id])||{};
     const isSel=S.selectedVid===v.id;
     const badge=p.passed?'<span class="badge-done">수료</span>':(p.done&&!p.passed?'<span class="badge-quiz">퀴즈 대기</span>':'');
-    const sub=p.passed?'<div class="vcard-sub">'+p.passedAt+' 수료</div>':'';
+    const exp=expiryOf(p);
+    const sub=p.passed?'<div class="vcard-sub">'+p.passedAt+' 수료'+(exp?' · '+fmtDate(exp)+'까지 유효':'')+'</div>':(p.prevPassedAt?'<div class="vcard-sub" style="color:#dc2626">이전 수료('+p.prevPassedAt+') 만료 · 재교육 필요</div>':'');
     return '<div class="vcard'+(isSel?' sel':'')+'" data-vid="'+v.id+'"><div class="vcard-top"><div class="vcard-title">'+v.title+'</div>'+badge+'</div><div class="vcard-sub">'+(v.type==='file'?'직접 업로드':'구글 드라이브')+'</div>'+sub+'</div>';
   }).join('');
   body.innerHTML=playerHTML+listHTML;
@@ -396,7 +417,7 @@ function renderStudentBody(){
     const sv=S.videos.find(x=>x.id===S.selectedVid);
     if(sv&&sv.type==='file') bindVideoEvents(S.selectedVid);
     const gul=document.getElementById('gd-unlock');
-    if(gul) gul.addEventListener('click',()=>{const l=document.getElementById('gd-lock');if(l)l.classList.remove('on');}); // 한 번만 누를 수 있게 잠금 해제(누르면 다시 잠김)
+    if(gul) gul.addEventListener('click',()=>{const l=document.getElementById('gd-lock');if(l){l.classList.remove('on');l.dataset.n=99;}}); // 한 번만 누를 수 있게 잠금 해제(누르면 다시 잠김)
     document.querySelectorAll('[data-fs]').forEach(b=>b.addEventListener('click',()=>openFullscreen(b.dataset.fs)));
     bindQuizButtons();
   }
@@ -510,7 +531,11 @@ window.addEventListener('blur',()=>{
   // 영상을 한 번 누르면(재생 시작) 즉시 조작 잠금 → 이후 건너뛰기·재생구간 조작 불가
   setTimeout(()=>{
     const a=document.activeElement,lock=document.getElementById('gd-lock');
-    if(lock&&a&&a.tagName==='IFRAME'&&a.closest('.gdrive-box')) lock.classList.add('on');
+    if(lock&&a&&a.tagName==='IFRAME'&&a.closest('.gdrive-box')){
+      // PC: 1번 누르면 잠금. 휴대폰: 2번까지 허용(1번째=재생, 2번째=드라이브의 검은 조작 화면 닫기) 후 잠금
+      const n=(+lock.dataset.n||0)+1;lock.dataset.n=n;
+      if(n>=(document.documentElement.classList.contains('is-mobile')?2:1)) lock.classList.add('on');
+    }
   },0);
   setTimeout(()=>{
     const a=document.activeElement;
@@ -786,12 +811,14 @@ async function loadStudentsTab(){
     const el=document.getElementById('admin-body');
     if(!S.students.length){el.innerHTML='<div style="font-size:13px;color:#aaa;text-align:center;padding:24px">등록된 수강자가 없습니다.</div>';return;}
     const rows=S.students.map(s=>{
-      const completed=s.progress?Object.values(s.progress).filter(p=>p.passed).length:0;
+      const completed=s.progress?Object.values(s.progress).filter(p=>p.passed&&!isExpired(p)).length:0;
       const vrows=S.videos.map(v=>{
         const p=(s.progress&&s.progress[v.id])||{};
         return '<div class="stat-vrow"><div class="stat-vtitle">'+v.title+'</div>'
           +'<div style="display:flex;gap:6px;flex-shrink:0;align-items:center">'
-          +(p.passed?'<span style="color:#16a34a;font-size:11px;font-weight:500">수료</span><span style="color:#aaa;font-size:10px">'+(p.passedAt||'')+'</span>':'<span style="color:#ddd;font-size:11px">미수료</span>')
+          +(p.passed&&!isExpired(p)?'<span style="color:#16a34a;font-size:11px;font-weight:500">수료</span><span style="color:#aaa;font-size:10px">'+(p.passedAt||'')+(expiryOf(p)?' (~'+fmtDate(expiryOf(p))+')':'')+'</span>'
+            :(p.passed||p.prevPassedAt?'<span style="color:#dc2626;font-size:11px;font-weight:500">만료·재교육</span><span style="color:#aaa;font-size:10px">이전 수료 '+(p.passedAt||p.prevPassedAt)+'</span>'
+            :'<span style="color:#ddd;font-size:11px">미수료</span>'))
           +'<button class="btn-red" data-reset-phone="'+s.phone+'" data-reset-vid="'+v.id+'">초기화</button>'
           +'</div></div>';
       }).join('');
@@ -831,11 +858,12 @@ async function resetProgress(phone,videoId){
 }
 
 function downloadCSV(){
-  const rows=[['수강자명','전화번호','강의명','영상유형','수료여부','수료일시']];
+  const rows=[['수강자명','전화번호','강의명','영상유형','수료여부','수료일시','유효기한','이전 수료일시(만료)']];
   S.students.forEach(s=>{
     S.videos.forEach(v=>{
       const p=(s.progress&&s.progress[v.id])||{};
-      rows.push([s.name,s.phone,v.title,v.type==='file'?'직접업로드':'구글드라이브',p.passed?'수료':'미수료',p.passedAt||'-']);
+      const ex=isExpired(p),valid=p.passed&&!ex,e=expiryOf(p);
+      rows.push([s.name,s.phone,v.title,v.type==='file'?'직접업로드':'구글드라이브',valid?'수료':((ex||p.prevPassedAt)?'만료(재교육 필요)':'미수료'),valid?p.passedAt:'-',valid&&e?fmtDate(e):'-',ex?p.passedAt:(p.prevPassedAt||'-')]);
     });
   });
   const csv='\uFEFF'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
