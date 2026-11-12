@@ -92,6 +92,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .gd-lock{position:absolute;inset:0;z-index:3;display:none;background:transparent}
 .gd-lock.on{display:block}
 .gd-tools{justify-content:space-between}
+.m-only{display:none}
+.is-mobile .m-only{display:inline}
 .gd-unlock{background:none;border:0;color:#888;font-size:12px;text-decoration:underline;text-underline-offset:2px;cursor:pointer;padding:0;text-align:left}
 .gdrive-box:fullscreen{padding:0!important;width:100%!important;height:100%!important;background:#000}
 .video-wrap:fullscreen{aspect-ratio:auto;width:100%;height:100%}
@@ -417,7 +419,7 @@ function renderStudentBody(){
     const sv=S.videos.find(x=>x.id===S.selectedVid);
     if(sv&&sv.type==='file') bindVideoEvents(S.selectedVid);
     const gul=document.getElementById('gd-unlock');
-    if(gul) gul.addEventListener('click',()=>{const l=document.getElementById('gd-lock');if(l){l.classList.remove('on');l.dataset.n=99;}}); // 한 번만 누를 수 있게 잠금 해제(누르면 다시 잠김)
+    if(gul) gul.addEventListener('click',()=>{const l=document.getElementById('gd-lock');if(l){l.classList.remove('on');delete l.dataset.t;}}); // 한 번만 누를 수 있게 잠금 해제(누르면 다시 잠김)
     document.querySelectorAll('[data-fs]').forEach(b=>b.addEventListener('click',()=>openFullscreen(b.dataset.fs)));
     bindQuizButtons();
   }
@@ -441,7 +443,7 @@ function buildPlayerHTML(v,p){
     const pct=p.done?100:Math.min(100,Math.round((elapsed/total)*100));
     const remaining=Math.max(0,total-elapsed);
     const isU=p.done||remaining<=0;
-    ps='<div class="notice-box notice-yellow">&#9888; 영상을 <b>끝까지 시청</b>해야 완료 버튼이 활성화됩니다.</div>'
+    ps='<div class="notice-box notice-yellow">&#9888; 영상을 <b>끝까지 시청</b>해야 완료 버튼이 활성화됩니다.<span class="m-only"><br>&#128073; ▶를 누른 뒤 <b>화면이 어두우면 영상을 2~3번 더 눌러주세요.</b> (8초 뒤에는 영상 조작이 잠깁니다)</span></div>'
       +'<div class="gdrive-box" id="gdrive-box"><iframe src="'+v.src+(v.src.indexOf('?')>-1?'&':'?')+'autoplay=1" allow="autoplay; encrypted-media"></iframe>'
       // ↑ 드라이브 플레이어가 재생 시 스스로 전체화면으로 전환하지 못하도록 iframe의 전체화면 권한을 뺌 (전체화면은 아래 '전체화면 활성화' 버튼으로만)
       +'<div class="gd-lock" id="gd-lock"></div></div>'
@@ -532,9 +534,13 @@ window.addEventListener('blur',()=>{
   setTimeout(()=>{
     const a=document.activeElement,lock=document.getElementById('gd-lock');
     if(lock&&a&&a.tagName==='IFRAME'&&a.closest('.gdrive-box')){
-      // PC: 1번 누르면 잠금. 휴대폰: 2번까지 허용(1번째=재생, 2번째=드라이브의 검은 조작 화면 닫기) 후 잠금
-      const n=(+lock.dataset.n||0)+1;lock.dataset.n=n;
-      if(n>=(document.documentElement.classList.contains('is-mobile')?2:1)) lock.classList.add('on');
+      // PC: 1번 누르면 바로 잠금.
+      // 휴대폰: 첫 터치 후 8초 동안은 자유롭게 터치 가능(재생 + 드라이브의 검은 조작 화면을 여러 번 눌러 닫기), 그 뒤 잠금
+      if(!lock.dataset.t){
+        lock.dataset.t=1;
+        if(document.documentElement.classList.contains('is-mobile')) setTimeout(()=>{if(lock.isConnected&&lock.dataset.t)lock.classList.add('on');},8000);
+        else lock.classList.add('on');
+      }
     }
   },0);
   setTimeout(()=>{
