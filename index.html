@@ -88,6 +88,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .gd-tools .gdrive-open{padding:0}
 .gd-fs-btn{background:#fff;border:1px solid rgba(0,0,0,0.15);color:#333;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer}
 .gd-fs-btn:active{background:#f0f0ee}
+/* 조작 잠금: 재생을 시작한 뒤에는 투명한 막이 영상 전체를 덮어 건너뛰기·재생구간 조작을 막음 */
+.gd-lock{position:absolute;inset:0;z-index:3;display:none;background:transparent}
+.gd-lock.on{display:block}
+.gd-tools{justify-content:space-between}
+.gd-unlock{background:none;border:0;color:#888;font-size:12px;text-decoration:underline;text-underline-offset:2px;cursor:pointer;padding:0;text-align:left}
 .gdrive-box:fullscreen{padding:0!important;width:100%!important;height:100%!important;background:#000}
 .video-wrap:fullscreen{aspect-ratio:auto;width:100%;height:100%}
 .video-wrap:-webkit-full-screen{aspect-ratio:auto;width:100%;height:100%}
@@ -390,6 +395,8 @@ function renderStudentBody(){
   if(S.selectedVid){
     const sv=S.videos.find(x=>x.id===S.selectedVid);
     if(sv&&sv.type==='file') bindVideoEvents(S.selectedVid);
+    const gul=document.getElementById('gd-unlock');
+    if(gul) gul.addEventListener('click',()=>{const l=document.getElementById('gd-lock');if(l)l.classList.remove('on');}); // 한 번만 누를 수 있게 잠금 해제(누르면 다시 잠김)
     document.querySelectorAll('[data-fs]').forEach(b=>b.addEventListener('click',()=>openFullscreen(b.dataset.fs)));
     bindQuizButtons();
   }
@@ -416,8 +423,8 @@ function buildPlayerHTML(v,p){
     ps='<div class="notice-box notice-yellow">&#9888; 영상을 <b>끝까지 시청</b>해야 완료 버튼이 활성화됩니다.</div>'
       +'<div class="gdrive-box" id="gdrive-box"><iframe src="'+v.src+(v.src.indexOf('?')>-1?'&':'?')+'autoplay=1" allow="autoplay; encrypted-media"></iframe>'
       // ↑ 드라이브 플레이어가 재생 시 스스로 전체화면으로 전환하지 못하도록 iframe의 전체화면 권한을 뺌 (전체화면은 아래 '전체화면 활성화' 버튼으로만)
-      +'</div>'
-      +'<div class="gd-tools"><button class="gd-fs-btn" data-fs="gdrive-box" type="button">&#x26F6; 전체화면 활성화</button></div>'
+      +'<div class="gd-lock" id="gd-lock"></div></div>'
+      +'<div class="gd-tools"><button class="gd-unlock" id="gd-unlock" type="button">영상이 멈췄나요? 여기를 누른 뒤 ▶ 누르기</button><button class="gd-fs-btn" data-fs="gdrive-box" type="button">&#x26F6; 전체화면 활성화</button></div>'
       +(!p.done?'<div class="timer-wrap"><div class="timer-bar-bg"><div class="timer-bar-fill" id="timer-fill" style="width:'+pct+'%"></div></div><div class="timer-row"><span>진행률 '+pct+'%</span><span id="timer-remaining">'+(isU?'시청 완료!':'남은 시간 '+fmtSec(remaining))+'</span></div></div>':'');
   }
   let footer='';
@@ -500,6 +507,11 @@ async function openFullscreen(id){
 // 드라이브 영상을 터치하면(=iframe이 포커스를 가져가면) 잠시 뒤 포커스를 사이트로 되돌림.
 // '영상 밖 다른 곳을 누른 것'과 같은 효과를 내서, 드라이브의 검은 조작 화면(소리·설정 버튼)이 바로 닫히게 하려는 것
 window.addEventListener('blur',()=>{
+  // 영상을 한 번 누르면(재생 시작) 즉시 조작 잠금 → 이후 건너뛰기·재생구간 조작 불가
+  setTimeout(()=>{
+    const a=document.activeElement,lock=document.getElementById('gd-lock');
+    if(lock&&a&&a.tagName==='IFRAME'&&a.closest('.gdrive-box')) lock.classList.add('on');
+  },0);
   setTimeout(()=>{
     const a=document.activeElement;
     if(a&&a.tagName==='IFRAME'&&a.closest('.gdrive-box')){a.blur();window.focus();}
