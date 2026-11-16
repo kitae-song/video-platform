@@ -60,6 +60,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .video-overlay{position:absolute;inset:0;z-index:2}
 .skip-toast{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.82);color:#fff;font-size:12px;padding:7px 14px;border-radius:8px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s;z-index:10}
 .skip-toast.show{opacity:1}
+.vplay{position:absolute;inset:0;z-index:3;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(0,0,0,0.35);color:#fff;border:0;font-size:14px;font-weight:500;cursor:pointer}
+.vplay.hide{display:none}
+.vplay-ic{width:56px;height:56px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:22px;padding-left:4px}
 .video-progress-wrap{padding:10px 16px 4px}
 .video-progress-bg{height:5px;background:#f0f0ee;border-radius:999px;overflow:hidden;cursor:not-allowed}
 .video-progress-fill{height:100%;background:#3b82f6;border-radius:999px;transition:width .3s}
@@ -279,6 +282,8 @@ const S={
 };
 
 if(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) document.documentElement.classList.add('is-mobile');
+const IS_IOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+if(IS_IOS) document.documentElement.classList.add('is-mobile','is-ios');
 const pad2=n=>String(n).padStart(2,'0');
 const fmtSec=s=>{s=Math.max(0,Math.round(s));return pad2(Math.floor(s/60))+':'+pad2(s%60);};
 const nowStr=()=>{const n=new Date();return n.getFullYear()+'.'+pad2(n.getMonth()+1)+'.'+pad2(n.getDate())+' '+pad2(n.getHours())+':'+pad2(n.getMinutes());};
@@ -447,6 +452,8 @@ function buildPlayerHTML(v,p){
     ps='<div class="notice-box notice-blue">&#9889; 영상이 끝나면 자동으로 완료 처리됩니다 · 건너뛰기 불가 · 화면을 누르면 일시정지/재생</div>'
       +'<div class="video-wrap" id="file-video-wrap"><video id="main-video" src="'+vs+'" autoplay preload="auto" controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture playsinline style="width:100%;height:100%;display:block"></video>'
       +'<div class="video-overlay" id="video-overlay"></div>'
+      // 아이폰 등 자동재생이 막히는 기기용: 멈춰 있을 때만 보이는 재생 버튼 (직접 눌러야 재생이 허용됨)
+      +'<button class="vplay" id="vplay" type="button"><span class="vplay-ic">&#9654;</span><span>눌러서 재생</span></button>'
       +'<div class="skip-toast" id="skip-toast">&#9888; 앞으로 건너뛰기는 허용되지 않습니다</div></div>'
       +'<div class="video-progress-wrap"><div class="video-progress-bg"><div class="video-progress-fill" id="vid-prog" style="width:0%"></div></div></div>'
       +'<div class="video-time" id="vid-time">0:00 / 0:00</div>'
@@ -456,11 +463,12 @@ function buildPlayerHTML(v,p){
     const pct=p.done?100:Math.min(100,Math.round((elapsed/total)*100));
     const remaining=Math.max(0,total-elapsed);
     const isU=p.done||remaining<=0;
-    ps='<div class="notice-box notice-yellow">&#9888; 영상을 <b>끝까지 시청</b>해야 완료 버튼이 활성화됩니다.</div>'
+    ps='<div class="notice-box notice-yellow">&#9888; 영상을 <b>끝까지 시청</b>해야 완료 버튼이 활성화됩니다.'+(IS_IOS?'<br>&#128073; <b>영상 가운데 ▶를 눌러 재생하세요.</b>':'')+'</div>'
       +'<div class="gdrive-box" id="gdrive-box"><iframe src="'+v.src+(v.src.indexOf('?')>-1?'&':'?')+'autoplay=1" allow="autoplay; encrypted-media"></iframe>'
       // ↑ 드라이브 플레이어가 재생 시 스스로 전체화면으로 전환하지 못하도록 iframe의 전체화면 권한을 뺌 (전체화면은 아래 '전체화면 활성화' 버튼으로만)
       // 처음부터 잠금: 투명한 막이 영상 전체를 덮어, 재생 시작 순간부터 영상 안의 어떤 버튼도 누를 수 없음 (영상은 자동재생)
-      +'<div class="gd-lock on" id="gd-lock"></div></div>'
+      // 단, 아이폰은 드라이브 플레이어가 자동재생되지 않으므로 처음엔 열어 두고, ▶를 누른 뒤 8초 후에 잠금
+      +'<div class="gd-lock'+(IS_IOS?'':' on')+'" id="gd-lock"></div></div>'
       +'<div class="gd-tools"><button class="gd-fs-btn" data-fs="gdrive-box" type="button">&#x26F6; 전체화면 활성화</button></div>'
       +(!p.done?'<div class="timer-wrap"><div class="timer-bar-bg"><div class="timer-bar-fill" id="timer-fill" style="width:'+pct+'%"></div></div><div class="timer-row"><span>진행률 '+pct+'%</span><span id="timer-remaining">'+(isU?'시청 완료!':'남은 시간 '+fmtSec(remaining))+'</span></div></div>':'');
   }
@@ -520,7 +528,19 @@ function bindVideoEvents(vid){
     const pr=(S.student.progress&&S.student.progress[vid])||{};
     if(!pr.done) startTimer(vid);
   };
-  if(vinfo&&vinfo.type==='gdrive') setTimeout(()=>{if(document.getElementById('main-video')===video&&video.readyState<1) fallbackToIframe();},15000);
+  // 재생을 시작했는데 20초가 지나도 영상 정보를 못 받으면 전환.
+  // (아이폰은 재생을 누르기 전에는 영상을 불러오지 않으므로, '재생 시작 후'부터 시간을 잼)
+  let loadTimer=null;
+  video.addEventListener('play',()=>{
+    if(vinfo&&vinfo.type==='gdrive'&&!loadTimer) loadTimer=setTimeout(()=>{if(document.getElementById('main-video')===video&&video.readyState<1) fallbackToIframe();},20000);
+  });
+  // 재생 버튼: 멈춰 있을 때 보이고, 재생되면 숨김
+  const vplay=document.getElementById('vplay');
+  const tryPlay=()=>{const q=video.play();if(q&&q.catch)q.catch(()=>{});};
+  const syncPlayBtn=()=>{if(vplay) vplay.classList.toggle('hide',!video.paused||video.ended);};
+  ['play','playing','pause','ended'].forEach(ev=>video.addEventListener(ev,syncPlayBtn));
+  if(vplay) vplay.addEventListener('click',tryPlay);
+  syncPlayBtn();
   video.addEventListener('error',()=>{
     if(vinfo&&vinfo.type==='gdrive'){fallbackToIframe();return;}
     const w=video.parentElement;
@@ -546,6 +566,9 @@ async function openFullscreen(id){
   const box=document.getElementById(id);
   if(!box) return;
   const req=box.requestFullscreen||box.webkitRequestFullscreen;
+  // 아이폰은 일반 전체화면을 지원하지 않아, 영상 자체의 전체화면(webkitEnterFullscreen)을 사용
+  const vEl=box.querySelector('video');
+  if(!req&&vEl&&vEl.webkitEnterFullscreen){try{vEl.webkitEnterFullscreen();}catch(e){}return;}
   if(req){
     try{await req.call(box);}catch(e){}
     try{if(screen.orientation&&screen.orientation.lock) await screen.orientation.lock('landscape');}catch(e){}
