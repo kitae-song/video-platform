@@ -298,7 +298,18 @@ const nowStr=()=>{const n=new Date();return n.getFullYear()+'.'+pad2(n.getMonth(
 const DRIVE_API_KEY=firebaseConfig.apiKey;
 const gdFail={};
 const driveId=v=>{const m=((v&&v.src)||'').match(/\/file\/d\/([^\/\?]+)/);return m?m[1]:null;};
-const isDirect=v=>!!v&&(v.type==='file'||(v.type==='gdrive'&&!!DRIVE_API_KEY&&!!driveId(v)&&!gdFail[v.id]));
+// 구글은 영상을 '통째로' 달라는 요청(브라우저 기본 방식)을 다운로드로 보고 용량 제한(downloadQuotaExceeded)으로 막음.
+// 작은 조각 요청은 허용하므로, 같은 폴더의 sw.js(서비스워커)가 영상 요청을 8MB 조각으로 나눠 받아옴.
+// sw.js가 없거나 이 브라우저가 지원하지 않으면 직접 재생은 쓰지 않고 기존 드라이브 플레이어로 재생.
+let swOK=false;
+const swReadyP=('serviceWorker' in navigator)
+  ?navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(()=>new Promise(res=>{
+      if(navigator.serviceWorker.controller){swOK=true;res();return;}
+      navigator.serviceWorker.addEventListener('controllerchange',()=>{swOK=true;res();});
+    })).catch(()=>{})
+  :Promise.resolve();
+const swWait=()=>Promise.race([swReadyP,new Promise(r=>setTimeout(r,3000))]);
+const isDirect=v=>!!v&&(v.type==='file'||(v.type==='gdrive'&&swOK&&!!DRIVE_API_KEY&&!!driveId(v)&&!gdFail[v.id]));
 const videoSrc=v=>v.type==='file'?(v.publicSrc||v.src):'https://www.googleapis.com/drive/v3/files/'+driveId(v)+'?alt=media&key='+DRIVE_API_KEY;
 
 // ── 수료 유효기간: 수료일로부터 3개월. 지나면 자동으로 초기화되어 처음부터 재교육 ──
@@ -349,6 +360,7 @@ async function doStudentLogin(){
   if(!phone){alert('전화번호를 입력해주세요.');return;}
   showLoading('로그인 중...');
   try{
+    await swWait(); // 영상 조각 받기 준비(최대 3초)
     const snap=await getDocs(collection(db,'students'));
     let found=null;
     snap.forEach(d=>{if(d.id===phone)found={id:d.id,...d.data()};});
