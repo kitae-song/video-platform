@@ -362,14 +362,29 @@ function stopYT(){
   if(ytPoll){clearInterval(ytPoll);ytPoll=null;}
   if(ytPlayer){try{ytPlayer.destroy();}catch(e){}ytPlayer=null;}
 }
-async function bindYouTube(vid){
+// 유튜브가 재생 도중 끊으면(휴대폰에서 오류 150 등) 자동으로 다시 연결: 본 위치부터 이어서 재생.
+// 연결 주소를 번갈아 사용(youtube-nocookie.com ↔ youtube.com) — 휴대폰 브라우저의 추적 차단 기능 영향을 피하기 위함
+const YT_HOSTS=['https://www.youtube-nocookie.com','https://www.youtube.com'];
+const YT_MAX_RETRY=3;
+function resetYTHolder(){
+  const wrap=document.getElementById('yt-wrap');if(!wrap) return false;
+  const old=document.getElementById('yt-player');if(old) old.remove();
+  wrap.querySelectorAll('.yt-msg').forEach(m=>m.remove());
+  const d=document.createElement('div');d.id='yt-player';wrap.insertBefore(d,wrap.firstChild);
+  const lock=document.getElementById('yt-lock');if(lock) lock.classList.remove('on');
+  return true;
+}
+async function bindYouTube(vid,attempt=0){
   stopYT();
   const v=S.videos.find(x=>x.id===vid);
   const id=ytId(v&&(v.ytid||v.src));
   const holder=document.getElementById('yt-player');
   const wrap=document.getElementById('yt-wrap');
   if(!holder||!wrap) return;
-  const showMsg=html=>{const m=document.createElement('div');m.className='yt-msg';m.innerHTML='<div style="font-size:24px">&#9888;</div><div>'+html+'</div>';wrap.appendChild(m);};
+  const showMsg=(html,retryBtn)=>{const m=document.createElement('div');m.className='yt-msg';
+    m.innerHTML='<div style="font-size:24px">&#9888;</div><div>'+html+'</div>'+(retryBtn?'<button type="button" class="gd-fs-btn" style="margin-top:6px">다시 시도</button>':'');
+    if(retryBtn) m.querySelector('button').addEventListener('click',()=>{if(resetYTHolder()) bindYouTube(vid,0);});
+    wrap.appendChild(m);};
   if(!id){showMsg('유튜브 링크가 올바르지 않습니다.<br>관리자에게 문의해 주세요.');return;}
   const lock=document.getElementById('yt-lock'),vplay=document.getElementById('vplay');
   const showPlay=on=>{if(vplay) vplay.classList.toggle('hide',!on);};
@@ -384,6 +399,7 @@ async function bindYouTube(vid){
   if(document.getElementById('yt-player')!==holder) return; // 불러오는 사이 다른 화면으로 바뀜
   let started=false,max=ytMax[vid]||0,dur=0;
   const p=new YT.Player(holder,{
+    host:YT_HOSTS[attempt%YT_HOSTS.length],
     videoId:id,width:'100%',height:'100%',
     playerVars:{autoplay:1,controls:0,disablekb:1,fs:0,rel:0,iv_load_policy:3,playsinline:1,modestbranding:1,start:Math.floor(max)},
     events:{
@@ -397,15 +413,28 @@ async function bindYouTube(vid){
         }else if(st===PS.PAUSED&&started){
           showPlay(true);
         }else if(st===PS.ENDED){
-          if(dur&&max>=dur-3){stopYT();markComplete(vid);}       // 끝까지 시청 → 자동 완료
+          if(dur&&max>=dur-3){delete ytMax[vid];stopYT();markComplete(vid);}       // 끝까지 시청 → 자동 완료 (다시 볼 때는 처음부터)
           else{p.seekTo(max,true);p.playVideo();toast();}         // 건너뛰어서 끝난 경우 → 되돌림
         }
       },
       onError:e=>{
         const c=e.data;
-        showMsg(c===101||c===150?'이 영상은 다른 사이트에서 재생이 허용되지 않았습니다.<br>(유튜브 스튜디오에서 "퍼가기 허용"을 켜야 합니다)'
-          :c===100?'영상을 찾을 수 없습니다. (삭제되었거나 비공개 영상)'
-          :'영상을 재생할 수 없습니다. (오류 '+c+')');
+        if(ytPlayer!==p) return;
+        if(c===100){stopYT();showMsg('영상을 찾을 수 없습니다. (삭제되었거나 비공개 영상)');return;}
+        // 그 밖의 오류는 자동으로 다시 연결 (본 위치부터 이어서)
+        if(attempt<YT_MAX_RETRY-1){
+          stopYT();
+          if(resetYTHolder()){
+            const w=document.getElementById('yt-wrap');const m=document.createElement('div');m.className='yt-msg';m.style.background='rgba(0,0,0,0.6)';
+            m.innerHTML='<div class="spinner" style="border-color:rgba(255,255,255,0.35);border-top-color:#fff"></div><div>영상 다시 연결 중...</div>';w.appendChild(m);
+            setTimeout(()=>{m.remove();bindYouTube(vid,attempt+1);},1200);
+          }
+          return;
+        }
+        stopYT();
+        showMsg((c===101||c===150?'유튜브가 이 브라우저에서 영상 재생을 막았습니다.':'영상을 재생할 수 없습니다.')
+          +' <span style="color:#888">(오류 '+c+')</span><br>'
+          +'<span style="font-size:12px;color:#aaa">다시 시도해도 안 되면 <b>크롬</b> 브라우저로 열어 주세요.</span>',true);
       }
     }
   });
@@ -423,8 +452,9 @@ async function bindYouTube(vid){
     if(cur>max){max=cur;ytMax[vid]=max;}
     updateUI(max,dur);
   },500);
-  if(lock) lock.addEventListener('click',()=>{if(!started)return;if(p.getPlayerState()===YT.PlayerState.PLAYING) p.pauseVideo();else p.playVideo();});
-  if(vplay) vplay.addEventListener('click',()=>{try{p.playVideo();}catch(_){}});
+  // (다시 연결하면 새 플레이어가 생기므로, 예전 플레이어에 대한 클릭은 무시)
+  if(lock) lock.addEventListener('click',()=>{if(ytPlayer!==p||!started)return;if(p.getPlayerState()===YT.PlayerState.PLAYING) p.pauseVideo();else p.playVideo();});
+  if(vplay) vplay.addEventListener('click',()=>{if(ytPlayer!==p)return;try{p.playVideo();}catch(_){}});
 }
 
 // ── 수료 유효기간: 수료일로부터 3개월. 지나면 자동으로 초기화되어 처음부터 재교육 ──
