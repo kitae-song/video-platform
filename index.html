@@ -165,6 +165,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .avatar{width:36px;height:36px;border-radius:50%;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;color:#5b21b6;flex-shrink:0}
 .stat-vrow{display:flex;align-items:center;justify-content:space-between;font-size:12px;gap:8px;padding:5px 0;border-top:0.5px solid rgba(0,0,0,0.06)}
 .stat-vtitle{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#888}
+.bulk-bar{gap:10px}
+.bulk-all{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:#333;cursor:pointer}
+.bulk-all input,.st-chk{width:18px;height:18px;accent-color:#7c3aed;cursor:pointer;flex-shrink:0}
+.btn-bulk-del{font-size:13px;padding:7px 14px;border-radius:8px;border:1px solid #dc2626;color:#fff;background:#dc2626;cursor:pointer}
+.btn-bulk-del:disabled{background:#f3f4f6;border-color:#e5e7eb;color:#aaa;cursor:not-allowed}
+.st-card.st-sel{border-color:#c4b5fd;background:#faf9ff}
 .csv-btn{font-size:12px;padding:7px 14px;border:1px solid rgba(0,0,0,0.12);border-radius:8px;color:#666;background:transparent;cursor:pointer;align-self:flex-end}
 .up-progress-wrap{display:flex;flex-direction:column;gap:5px}
 .up-bar-bg{height:6px;background:#f0f0ee;border-radius:999px;overflow:hidden}
@@ -1147,7 +1153,9 @@ async function loadStudentsTab(){
           +'<button class="btn-red" data-reset-phone="'+s.phone+'" data-reset-vid="'+v.id+'">초기화</button>'
           +'</div></div>';
       }).join('');
-      return '<div class="card"><div style="display:flex;align-items:center;gap:10px">'
+      const inc=isIncomplete(s);
+      return '<div class="card st-card'+(inc?' st-inc':'')+'" data-sid="'+esc(s.id)+'"><div style="display:flex;align-items:center;gap:10px">'
+        +'<input type="checkbox" class="st-chk" data-sid="'+esc(s.id)+'" aria-label="'+esc(s.name)+' 선택"/>'
         +'<div class="avatar">'+s.name[0]+'</div>'
         +'<div><div style="font-size:14px;font-weight:500;color:#1a1a1a">'+s.name+'</div><div style="font-size:12px;color:#888">'+s.phone+'</div></div>'
         +'<div style="margin-left:auto;display:flex;align-items:center;gap:8px">'
@@ -1155,8 +1163,32 @@ async function loadStudentsTab(){
         +'<button class="btn-del" data-del-student="'+s.phone+'">삭제</button>'
         +'</div></div>'+vrows+'</div>';
     }).join('');
-    el.innerHTML='<div style="display:flex;justify-content:flex-end;margin-bottom:4px"><button class="csv-btn" id="csv-btn">CSV 다운로드</button></div>'+rows;
+    const incCount=S.students.filter(isIncomplete).length;
+    // 일괄 선택·삭제 도구줄
+    el.innerHTML='<div class="card bulk-bar">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'
+      +'<label class="bulk-all"><input type="checkbox" id="chk-all"/> 전체 선택</label>'
+      +'<div style="font-size:12px;color:#888">전체 '+S.students.length+'명 · 미수료 <b style="color:#dc2626">'+incCount+'</b>명</div></div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      +'<button class="btn-outline" id="sel-inc" type="button">미수료자만 선택 ('+incCount+'명)</button>'
+      +'<button class="btn-outline" id="sel-none" type="button">선택 해제</button>'
+      +'<button class="btn-bulk-del" id="bulk-del" type="button" disabled>선택 삭제 (0명)</button>'
+      +'<button class="csv-btn" id="csv-btn" style="margin-left:auto">CSV 다운로드</button></div>'
+      +'<div style="font-size:11px;color:#aaa">미수료자: 현재 강의 중 하나라도 수료하지 않았거나 수료가 만료된 사람</div>'
+      +'</div>'+rows;
     document.getElementById('csv-btn').addEventListener('click',downloadCSV);
+    const chks=()=>[...document.querySelectorAll('.st-chk')];
+    const syncBulk=()=>{
+      const sel=chks().filter(c=>c.checked);
+      const b=document.getElementById('bulk-del');b.disabled=!sel.length;b.textContent='선택 삭제 ('+sel.length+'명)';
+      const all=document.getElementById('chk-all');all.checked=sel.length>0&&sel.length===chks().length;all.indeterminate=sel.length>0&&sel.length<chks().length;
+      chks().forEach(c=>c.closest('.st-card').classList.toggle('st-sel',c.checked));
+    };
+    chks().forEach(c=>c.addEventListener('change',syncBulk));
+    document.getElementById('chk-all').addEventListener('change',e=>{chks().forEach(c=>c.checked=e.target.checked);syncBulk();});
+    document.getElementById('sel-inc').addEventListener('click',()=>{chks().forEach(c=>c.checked=c.closest('.st-card').classList.contains('st-inc'));syncBulk();});
+    document.getElementById('sel-none').addEventListener('click',()=>{chks().forEach(c=>c.checked=false);syncBulk();});
+    document.getElementById('bulk-del').addEventListener('click',()=>bulkDeleteStudents(chks().filter(c=>c.checked).map(c=>c.dataset.sid)));
     document.querySelectorAll('[data-del-student]').forEach(btn=>{btn.addEventListener('click',()=>deleteStudent(btn.dataset.delStudent));});
     document.querySelectorAll('[data-reset-phone]').forEach(btn=>{btn.addEventListener('click',()=>resetProgress(btn.dataset.resetPhone,btn.dataset.resetVid));});
   }catch(e){
@@ -1164,6 +1196,27 @@ async function loadStudentsTab(){
   }
 }
 
+// 미수료자: 현재 등록된 강의 중 하나라도 '유효한 수료'(만료 전)가 없는 사람
+function isIncomplete(s){
+  if(!S.videos.length) return false;
+  return S.videos.some(v=>{const p=(s.progress&&s.progress[v.id])||{};return !(p.passed&&!isExpired(p));});
+}
+// 선택한 수강자 한꺼번에 삭제 (되돌릴 수 없음)
+async function bulkDeleteStudents(ids){
+  if(!ids.length) return;
+  const names=ids.map(id=>(S.students.find(s=>s.id===id)||{}).name||id);
+  const list=names.slice(0,5).join(', ')+(names.length>5?' 외 '+(names.length-5)+'명':'');
+  if(!confirm('선택한 '+ids.length+'명을 삭제합니다.\n('+list+')\n\n삭제하면 수강 기록이 모두 지워지며 되돌릴 수 없습니다. 계속할까요?')) return;
+  let done=0,fail=0;
+  showLoading('삭제 중... 0/'+ids.length);
+  for(let i=0;i<ids.length;i+=10){ // 10명씩 나눠서 삭제
+    await Promise.all(ids.slice(i,i+10).map(id=>deleteDoc(doc(db,'students',id)).then(()=>done++).catch(()=>fail++)));
+    showLoading('삭제 중... '+(done+fail)+'/'+ids.length);
+  }
+  hideLoading();
+  await loadStudentsTab();
+  alert(done+'명을 삭제했습니다.'+(fail?'\n'+fail+'명은 삭제하지 못했습니다. 다시 시도해 주세요.':''));
+}
 async function deleteStudent(phone){
   if(!confirm('이 수강자를 삭제하시겠습니까?'))return;
   showLoading('삭제 중...');
