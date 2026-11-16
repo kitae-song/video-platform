@@ -319,8 +319,8 @@ async function precheckDirect(v){
   if(!v||v.type!=='gdrive'||directChecked[v.id]||!isDirect(v)) return;
   directChecked[v.id]=true;
   try{
-    const ac=new AbortController();const tm=setTimeout(()=>ac.abort(),4000);
-    // 실제 재생과 같은 크기(영상 첫 조각 8MB)로 요청해 봄 — 1KB 같은 아주 작은 요청은 제한 중에도 통과해서 판단이 틀릴 수 있음
+    const ac=new AbortController();const tm=setTimeout(()=>ac.abort(),9000); // sw.js가 거절된 조각을 다시 요청하는 시간까지 기다림
+    // 실제 재생과 같은 방식(영상 첫 조각)으로 요청해 봄
     const r=await fetch(videoSrc(v),{headers:{Range:'bytes=0-'},signal:ac.signal});
     clearTimeout(tm);
     if(r.status!==206) gdFail[v.id]=true;
