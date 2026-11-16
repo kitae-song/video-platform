@@ -311,6 +311,21 @@ const swReadyP=('serviceWorker' in navigator)
 const swWait=()=>Promise.race([swReadyP,new Promise(r=>setTimeout(r,3000))]);
 const isDirect=v=>!!v&&(v.type==='file'||(v.type==='gdrive'&&swOK&&!!DRIVE_API_KEY&&!!driveId(v)&&!gdFail[v.id]));
 const videoSrc=v=>v.type==='file'?(v.publicSrc||v.src):'https://www.googleapis.com/drive/v3/files/'+driveId(v)+'?alt=media&key='+DRIVE_API_KEY;
+// 직접 재생이 지금 가능한지 영상을 띄우기 전에 미리 확인(영상 앞부분 1KB만 요청, 최대 4초).
+// 구글이 이 파일의 다운로드를 막고 있으면(용량 제한 초과) 처음부터 드라이브 플레이어로 재생
+// → 재생 도중 화면이 드라이브 플레이어로 바뀌는 일이 없도록 함. 다음 접속 때 다시 확인하므로, 제한이 풀리면 자동으로 직접 재생으로 돌아옴.
+const directChecked={};
+async function precheckDirect(v){
+  if(!v||v.type!=='gdrive'||directChecked[v.id]||!isDirect(v)) return;
+  directChecked[v.id]=true;
+  try{
+    const ac=new AbortController();const tm=setTimeout(()=>ac.abort(),4000);
+    const r=await fetch(videoSrc(v),{headers:{Range:'bytes=0-1023'},signal:ac.signal});
+    clearTimeout(tm);
+    if(r.status!==206) gdFail[v.id]=true;
+    try{await r.body.cancel();}catch(e){}
+  }catch(e){gdFail[v.id]=true;}
+}
 
 // ── 수료 유효기간: 수료일로부터 3개월. 지나면 자동으로 초기화되어 처음부터 재교육 ──
 const VALID_MONTHS=3;
@@ -374,6 +389,7 @@ async function doStudentLogin(){
     document.getElementById('st-greeting').textContent=found.name+'님의 강의';
     S.selectedVid=null;
     const first=S.videos.find(v=>v.active);
+    await precheckDirect(first);
     if(first) S.selectedVid=first.id;
     renderStudentBody();
     go('s-student');
@@ -619,9 +635,11 @@ document.addEventListener('fullscreenchange',()=>{
   if(!document.fullscreenElement){try{screen.orientation&&screen.orientation.unlock&&screen.orientation.unlock();}catch(e){}}
 });
 
-function selectVideo(vid){
-  clearTimer();S.selectedVid=vid;renderStudentBody();
+async function selectVideo(vid){
+  clearTimer();
   const v=S.videos.find(x=>x.id===vid);
+  if(v&&v.type==='gdrive'&&!directChecked[v.id]){showLoading('영상 준비 중...');await precheckDirect(v);hideLoading();}
+  S.selectedVid=vid;renderStudentBody();
   const p=(S.student.progress&&S.student.progress[vid])||{done:false,elapsed:0};
   if(!p.done&&!isDirect(v)) startTimer(vid);
   window.scrollTo(0,0);
