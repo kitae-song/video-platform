@@ -60,12 +60,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .video-overlay{position:absolute;inset:0;z-index:2}
 .skip-toast{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.82);color:#fff;font-size:12px;padding:7px 14px;border-radius:8px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s;z-index:10}
 .skip-toast.show{opacity:1}
-.vplay{position:absolute;inset:0;z-index:3;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:transparent;color:#fff;border:0;font-size:14px;font-weight:500;cursor:pointer;text-shadow:0 1px 4px rgba(0,0,0,0.8)}
-.vplay.hide{display:none}
-.vload{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#fff;font-size:13px;pointer-events:none;text-shadow:0 1px 4px rgba(0,0,0,0.8)}
-.vload.hide{display:none}
-.video-wrap video{object-fit:contain;background:#000}
-.vplay-ic{width:56px;height:56px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:22px;padding-left:4px}
 .video-progress-wrap{padding:10px 16px 4px}
 .video-progress-bg{height:5px;background:#f0f0ee;border-radius:999px;overflow:hidden;cursor:not-allowed}
 .video-progress-fill{height:100%;background:#3b82f6;border-radius:999px;transition:width .3s}
@@ -285,8 +279,6 @@ const S={
 };
 
 if(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)) document.documentElement.classList.add('is-mobile');
-const IS_IOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-if(IS_IOS) document.documentElement.classList.add('is-mobile','is-ios');
 const pad2=n=>String(n).padStart(2,'0');
 const fmtSec=s=>{s=Math.max(0,Math.round(s));return pad2(Math.floor(s/60))+':'+pad2(s%60);};
 const nowStr=()=>{const n=new Date();return n.getFullYear()+'.'+pad2(n.getMonth()+1)+'.'+pad2(n.getDate())+' '+pad2(n.getHours())+':'+pad2(n.getMinutes());};
@@ -298,35 +290,8 @@ const nowStr=()=>{const n=new Date();return n.getFullYear()+'.'+pad2(n.getMonth(
 const DRIVE_API_KEY=firebaseConfig.apiKey;
 const gdFail={};
 const driveId=v=>{const m=((v&&v.src)||'').match(/\/file\/d\/([^\/\?]+)/);return m?m[1]:null;};
-// 구글은 영상을 '통째로' 달라는 요청(브라우저 기본 방식)을 다운로드로 보고 용량 제한(downloadQuotaExceeded)으로 막음.
-// 작은 조각 요청은 허용하므로, 같은 폴더의 sw.js(서비스워커)가 영상 요청을 8MB 조각으로 나눠 받아옴.
-// sw.js가 없거나 이 브라우저가 지원하지 않으면 직접 재생은 쓰지 않고 기존 드라이브 플레이어로 재생.
-let swOK=false;
-const swReadyP=('serviceWorker' in navigator)
-  ?navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(()=>new Promise(res=>{
-      if(navigator.serviceWorker.controller){swOK=true;res();return;}
-      navigator.serviceWorker.addEventListener('controllerchange',()=>{swOK=true;res();});
-    })).catch(()=>{})
-  :Promise.resolve();
-const swWait=()=>Promise.race([swReadyP,new Promise(r=>setTimeout(r,3000))]);
-const isDirect=v=>!!v&&(v.type==='file'||(v.type==='gdrive'&&swOK&&!!DRIVE_API_KEY&&!!driveId(v)&&!gdFail[v.id]));
+const isDirect=v=>!!v&&(v.type==='file'||(v.type==='gdrive'&&!!DRIVE_API_KEY&&!!driveId(v)&&!gdFail[v.id]));
 const videoSrc=v=>v.type==='file'?(v.publicSrc||v.src):'https://www.googleapis.com/drive/v3/files/'+driveId(v)+'?alt=media&key='+DRIVE_API_KEY;
-// 직접 재생이 지금 가능한지 영상을 띄우기 전에 미리 확인(영상 앞부분 1KB만 요청, 최대 4초).
-// 구글이 이 파일의 다운로드를 막고 있으면(용량 제한 초과) 처음부터 드라이브 플레이어로 재생
-// → 재생 도중 화면이 드라이브 플레이어로 바뀌는 일이 없도록 함. 다음 접속 때 다시 확인하므로, 제한이 풀리면 자동으로 직접 재생으로 돌아옴.
-const directChecked={};
-async function precheckDirect(v){
-  if(!v||v.type!=='gdrive'||directChecked[v.id]||!isDirect(v)) return;
-  directChecked[v.id]=true;
-  try{
-    const ac=new AbortController();const tm=setTimeout(()=>ac.abort(),9000); // sw.js가 거절된 조각을 다시 요청하는 시간까지 기다림
-    // 실제 재생과 같은 방식(영상 첫 조각)으로 요청해 봄
-    const r=await fetch(videoSrc(v),{headers:{Range:'bytes=0-'},signal:ac.signal});
-    clearTimeout(tm);
-    if(r.status!==206) gdFail[v.id]=true;
-    try{await r.body.cancel();}catch(e){}
-  }catch(e){gdFail[v.id]=true;}
-}
 
 // ── 수료 유효기간: 수료일로부터 3개월. 지나면 자동으로 초기화되어 처음부터 재교육 ──
 const VALID_MONTHS=3;
@@ -376,7 +341,6 @@ async function doStudentLogin(){
   if(!phone){alert('전화번호를 입력해주세요.');return;}
   showLoading('로그인 중...');
   try{
-    await swWait(); // 영상 조각 받기 준비(최대 3초)
     const snap=await getDocs(collection(db,'students'));
     let found=null;
     snap.forEach(d=>{if(d.id===phone)found={id:d.id,...d.data()};});
@@ -390,7 +354,6 @@ async function doStudentLogin(){
     document.getElementById('st-greeting').textContent=found.name+'님의 강의';
     S.selectedVid=null;
     const first=S.videos.find(v=>v.active);
-    await precheckDirect(first);
     if(first) S.selectedVid=first.id;
     renderStudentBody();
     go('s-student');
@@ -482,11 +445,8 @@ function buildPlayerHTML(v,p){
   if(isDirect(v)){
     const vs=videoSrc(v);
     ps='<div class="notice-box notice-blue">&#9889; 영상이 끝나면 자동으로 완료 처리됩니다 · 건너뛰기 불가 · 화면을 누르면 일시정지/재생</div>'
-      +'<div class="video-wrap" id="file-video-wrap"><video id="main-video" src="'+vs+'"'+(v.type==='gdrive'?' poster="https://drive.google.com/thumbnail?id='+driveId(v)+'&sz=w1280"':'')+' autoplay preload="auto" controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture playsinline style="width:100%;height:100%;display:block"></video>'
+      +'<div class="video-wrap" id="file-video-wrap"><video id="main-video" src="'+vs+'" autoplay preload="auto" controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture playsinline style="width:100%;height:100%;display:block"></video>'
       +'<div class="video-overlay" id="video-overlay"></div>'
-      // 아이폰 등 자동재생이 막히는 기기용: 멈춰 있을 때만 보이는 재생 버튼 (직접 눌러야 재생이 허용됨)
-      +'<div class="vload hide" id="vload"><div class="spinner" style="border-top-color:#fff;border-color:rgba(255,255,255,0.35);border-top-color:#fff"></div><span>영상 불러오는 중...</span></div>'
-      +'<button class="vplay hide" id="vplay" type="button"><span class="vplay-ic">&#9654;</span><span>눌러서 재생</span></button>'
       +'<div class="skip-toast" id="skip-toast">&#9888; 앞으로 건너뛰기는 허용되지 않습니다</div></div>'
       +'<div class="video-progress-wrap"><div class="video-progress-bg"><div class="video-progress-fill" id="vid-prog" style="width:0%"></div></div></div>'
       +'<div class="video-time" id="vid-time">0:00 / 0:00</div>'
@@ -496,12 +456,11 @@ function buildPlayerHTML(v,p){
     const pct=p.done?100:Math.min(100,Math.round((elapsed/total)*100));
     const remaining=Math.max(0,total-elapsed);
     const isU=p.done||remaining<=0;
-    ps='<div class="notice-box notice-yellow">&#9888; 영상을 <b>끝까지 시청</b>해야 완료 버튼이 활성화됩니다.'+(IS_IOS?'<br>&#128073; <b>영상 가운데 ▶를 눌러 재생하세요.</b>':'')+'</div>'
+    ps='<div class="notice-box notice-yellow">&#9888; 영상을 <b>끝까지 시청</b>해야 완료 버튼이 활성화됩니다.</div>'
       +'<div class="gdrive-box" id="gdrive-box"><iframe src="'+v.src+(v.src.indexOf('?')>-1?'&':'?')+'autoplay=1" allow="autoplay; encrypted-media"></iframe>'
       // ↑ 드라이브 플레이어가 재생 시 스스로 전체화면으로 전환하지 못하도록 iframe의 전체화면 권한을 뺌 (전체화면은 아래 '전체화면 활성화' 버튼으로만)
       // 처음부터 잠금: 투명한 막이 영상 전체를 덮어, 재생 시작 순간부터 영상 안의 어떤 버튼도 누를 수 없음 (영상은 자동재생)
-      // 단, 아이폰은 드라이브 플레이어가 자동재생되지 않으므로 처음엔 열어 두고, ▶를 누른 뒤 8초 후에 잠금
-      +'<div class="gd-lock'+(IS_IOS?'':' on')+'" id="gd-lock"></div></div>'
+      +'<div class="gd-lock on" id="gd-lock"></div></div>'
       +'<div class="gd-tools"><button class="gd-fs-btn" data-fs="gdrive-box" type="button">&#x26F6; 전체화면 활성화</button></div>'
       +(!p.done?'<div class="timer-wrap"><div class="timer-bar-bg"><div class="timer-bar-fill" id="timer-fill" style="width:'+pct+'%"></div></div><div class="timer-row"><span>진행률 '+pct+'%</span><span id="timer-remaining">'+(isU?'시청 완료!':'남은 시간 '+fmtSec(remaining))+'</span></div></div>':'');
   }
@@ -561,24 +520,7 @@ function bindVideoEvents(vid){
     const pr=(S.student.progress&&S.student.progress[vid])||{};
     if(!pr.done) startTimer(vid);
   };
-  // 재생을 시작했는데 20초가 지나도 영상 정보를 못 받으면 전환.
-  // (아이폰은 재생을 누르기 전에는 영상을 불러오지 않으므로, '재생 시작 후'부터 시간을 잼)
-  let loadTimer=null;
-  video.addEventListener('play',()=>{
-    if(vinfo&&vinfo.type==='gdrive'&&!loadTimer) loadTimer=setTimeout(()=>{if(document.getElementById('main-video')===video&&video.readyState<1) fallbackToIframe();},20000);
-  });
-  // 재생 버튼: 멈춰 있을 때 보이고, 재생되면 숨김
-  const vplay=document.getElementById('vplay');
-  // (자동재생이 되는 기기에서는 처음부터 보이지 않음 — 자동재생이 거부됐거나 일시정지했을 때만 표시)
-  const showPlayBtn=on=>{if(vplay) vplay.classList.toggle('hide',!on);};
-  const tryPlay=()=>{showPlayBtn(false);const q=video.play();if(q&&q.catch)q.catch(()=>showPlayBtn(true));};
-  ['play','playing','ended'].forEach(ev=>video.addEventListener(ev,()=>showPlayBtn(false)));
-  video.addEventListener('pause',()=>showPlayBtn(!video.ended));
-  if(vplay) vplay.addEventListener('click',tryPlay);
-  // 불러오는 중 표시: 재생은 시작했는데 아직 화면이 준비되지 않은 동안만 보임 (검은 화면 대신 영상 첫 장면 + 안내)
-  const vload=document.getElementById('vload');
-  const syncLoad=()=>{if(vload) vload.classList.toggle('hide',video.paused||video.ended||video.readyState>=3);};
-  ['play','playing','waiting','canplay','pause','ended','seeked'].forEach(ev=>video.addEventListener(ev,syncLoad));
+  if(vinfo&&vinfo.type==='gdrive') setTimeout(()=>{if(document.getElementById('main-video')===video&&video.readyState<1) fallbackToIframe();},15000);
   video.addEventListener('error',()=>{
     if(vinfo&&vinfo.type==='gdrive'){fallbackToIframe();return;}
     const w=video.parentElement;
@@ -593,7 +535,8 @@ function bindVideoEvents(vid){
   video.addEventListener('seeking',()=>{if(video.currentTime>maxReached+1.5){video.currentTime=maxReached;showToast();}});
   video.addEventListener('ended',()=>markComplete(vid));
   // 페이지 진입 시 자동재생 (입장하기/강의 선택 터치 직후라 소리 있는 재생이 대부분 허용됨)
-  tryPlay();syncLoad();
+  const p=video.play();
+  if(p&&p.catch) p.catch(()=>{});
   // 재생바·소리 버튼을 없앴으므로, 영상 화면을 터치하면 재생/일시정지
   const ov=document.getElementById('video-overlay');
   if(ov) ov.addEventListener('click',()=>{if(video.paused){const q=video.play();if(q&&q.catch)q.catch(()=>{});}else video.pause();});
@@ -603,9 +546,6 @@ async function openFullscreen(id){
   const box=document.getElementById(id);
   if(!box) return;
   const req=box.requestFullscreen||box.webkitRequestFullscreen;
-  // 아이폰은 일반 전체화면을 지원하지 않아, 영상 자체의 전체화면(webkitEnterFullscreen)을 사용
-  const vEl=box.querySelector('video');
-  if(!req&&vEl&&vEl.webkitEnterFullscreen){try{vEl.webkitEnterFullscreen();}catch(e){}return;}
   if(req){
     try{await req.call(box);}catch(e){}
     try{if(screen.orientation&&screen.orientation.lock) await screen.orientation.lock('landscape');}catch(e){}
@@ -636,11 +576,9 @@ document.addEventListener('fullscreenchange',()=>{
   if(!document.fullscreenElement){try{screen.orientation&&screen.orientation.unlock&&screen.orientation.unlock();}catch(e){}}
 });
 
-async function selectVideo(vid){
-  clearTimer();
+function selectVideo(vid){
+  clearTimer();S.selectedVid=vid;renderStudentBody();
   const v=S.videos.find(x=>x.id===vid);
-  if(v&&v.type==='gdrive'&&!directChecked[v.id]){showLoading('영상 준비 중...');await precheckDirect(v);hideLoading();}
-  S.selectedVid=vid;renderStudentBody();
   const p=(S.student.progress&&S.student.progress[vid])||{done:false,elapsed:0};
   if(!p.done&&!isDirect(v)) startTimer(vid);
   window.scrollTo(0,0);
