@@ -60,8 +60,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .video-overlay{position:absolute;inset:0;z-index:2}
 .skip-toast{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.82);color:#fff;font-size:12px;padding:7px 14px;border-radius:8px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s;z-index:10}
 .skip-toast.show{opacity:1}
-.vplay{position:absolute;inset:0;z-index:3;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(0,0,0,0.35);color:#fff;border:0;font-size:14px;font-weight:500;cursor:pointer}
+.vplay{position:absolute;inset:0;z-index:3;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:transparent;color:#fff;border:0;font-size:14px;font-weight:500;cursor:pointer;text-shadow:0 1px 4px rgba(0,0,0,0.8)}
 .vplay.hide{display:none}
+.vload{position:absolute;inset:0;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#fff;font-size:13px;pointer-events:none;text-shadow:0 1px 4px rgba(0,0,0,0.8)}
+.vload.hide{display:none}
+.video-wrap video{object-fit:contain;background:#000}
 .vplay-ic{width:56px;height:56px;border-radius:50%;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:22px;padding-left:4px}
 .video-progress-wrap{padding:10px 16px 4px}
 .video-progress-bg{height:5px;background:#f0f0ee;border-radius:999px;overflow:hidden;cursor:not-allowed}
@@ -450,10 +453,11 @@ function buildPlayerHTML(v,p){
   if(isDirect(v)){
     const vs=videoSrc(v);
     ps='<div class="notice-box notice-blue">&#9889; 영상이 끝나면 자동으로 완료 처리됩니다 · 건너뛰기 불가 · 화면을 누르면 일시정지/재생</div>'
-      +'<div class="video-wrap" id="file-video-wrap"><video id="main-video" src="'+vs+'" autoplay preload="auto" controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture playsinline style="width:100%;height:100%;display:block"></video>'
+      +'<div class="video-wrap" id="file-video-wrap"><video id="main-video" src="'+vs+'"'+(v.type==='gdrive'?' poster="https://drive.google.com/thumbnail?id='+driveId(v)+'&sz=w1280"':'')+' autoplay preload="auto" controlslist="nodownload nofullscreen noremoteplayback" disablepictureinpicture playsinline style="width:100%;height:100%;display:block"></video>'
       +'<div class="video-overlay" id="video-overlay"></div>'
       // 아이폰 등 자동재생이 막히는 기기용: 멈춰 있을 때만 보이는 재생 버튼 (직접 눌러야 재생이 허용됨)
-      +'<button class="vplay" id="vplay" type="button"><span class="vplay-ic">&#9654;</span><span>눌러서 재생</span></button>'
+      +'<div class="vload hide" id="vload"><div class="spinner" style="border-top-color:#fff;border-color:rgba(255,255,255,0.35);border-top-color:#fff"></div><span>영상 불러오는 중...</span></div>'
+      +'<button class="vplay hide" id="vplay" type="button"><span class="vplay-ic">&#9654;</span><span>눌러서 재생</span></button>'
       +'<div class="skip-toast" id="skip-toast">&#9888; 앞으로 건너뛰기는 허용되지 않습니다</div></div>'
       +'<div class="video-progress-wrap"><div class="video-progress-bg"><div class="video-progress-fill" id="vid-prog" style="width:0%"></div></div></div>'
       +'<div class="video-time" id="vid-time">0:00 / 0:00</div>'
@@ -536,11 +540,16 @@ function bindVideoEvents(vid){
   });
   // 재생 버튼: 멈춰 있을 때 보이고, 재생되면 숨김
   const vplay=document.getElementById('vplay');
-  const tryPlay=()=>{const q=video.play();if(q&&q.catch)q.catch(()=>{});};
-  const syncPlayBtn=()=>{if(vplay) vplay.classList.toggle('hide',!video.paused||video.ended);};
-  ['play','playing','pause','ended'].forEach(ev=>video.addEventListener(ev,syncPlayBtn));
+  // (자동재생이 되는 기기에서는 처음부터 보이지 않음 — 자동재생이 거부됐거나 일시정지했을 때만 표시)
+  const showPlayBtn=on=>{if(vplay) vplay.classList.toggle('hide',!on);};
+  const tryPlay=()=>{showPlayBtn(false);const q=video.play();if(q&&q.catch)q.catch(()=>showPlayBtn(true));};
+  ['play','playing','ended'].forEach(ev=>video.addEventListener(ev,()=>showPlayBtn(false)));
+  video.addEventListener('pause',()=>showPlayBtn(!video.ended));
   if(vplay) vplay.addEventListener('click',tryPlay);
-  syncPlayBtn();
+  // 불러오는 중 표시: 재생은 시작했는데 아직 화면이 준비되지 않은 동안만 보임 (검은 화면 대신 영상 첫 장면 + 안내)
+  const vload=document.getElementById('vload');
+  const syncLoad=()=>{if(vload) vload.classList.toggle('hide',video.paused||video.ended||video.readyState>=3);};
+  ['play','playing','waiting','canplay','pause','ended','seeked'].forEach(ev=>video.addEventListener(ev,syncLoad));
   video.addEventListener('error',()=>{
     if(vinfo&&vinfo.type==='gdrive'){fallbackToIframe();return;}
     const w=video.parentElement;
@@ -555,8 +564,7 @@ function bindVideoEvents(vid){
   video.addEventListener('seeking',()=>{if(video.currentTime>maxReached+1.5){video.currentTime=maxReached;showToast();}});
   video.addEventListener('ended',()=>markComplete(vid));
   // 페이지 진입 시 자동재생 (입장하기/강의 선택 터치 직후라 소리 있는 재생이 대부분 허용됨)
-  const p=video.play();
-  if(p&&p.catch) p.catch(()=>{});
+  tryPlay();syncLoad();
   // 재생바·소리 버튼을 없앴으므로, 영상 화면을 터치하면 재생/일시정지
   const ov=document.getElementById('video-overlay');
   if(ov) ov.addEventListener('click',()=>{if(video.paused){const q=video.play();if(q&&q.catch)q.catch(()=>{});}else video.pause();});
