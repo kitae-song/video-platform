@@ -320,7 +320,8 @@ async function precheckDirect(v){
   directChecked[v.id]=true;
   try{
     const ac=new AbortController();const tm=setTimeout(()=>ac.abort(),4000);
-    const r=await fetch(videoSrc(v),{headers:{Range:'bytes=0-1023'},signal:ac.signal});
+    // 실제 재생과 같은 크기(영상 첫 조각 8MB)로 요청해 봄 — 1KB 같은 아주 작은 요청은 제한 중에도 통과해서 판단이 틀릴 수 있음
+    const r=await fetch(videoSrc(v),{headers:{Range:'bytes=0-'},signal:ac.signal});
     clearTimeout(tm);
     if(r.status!==206) gdFail[v.id]=true;
     try{await r.body.cancel();}catch(e){}
